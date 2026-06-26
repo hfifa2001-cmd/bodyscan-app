@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D 근육 뷰어 · Z-Anatomy 연동</title>
+<style>
+  :root{
+    --bg:#070B10; --panel:#0F161E; --panel2:#0B1119; --line:rgba(120,200,210,.12); --line2:rgba(120,200,210,.22);
+    --txt:#E8F1F5; --txt2:#90A4B1; --txt3:#5B6D7A; --teal:#33C9B7; --red:#E2574A; --blue:#3B8BD4; --amber:#ECA13C;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace; --sans:system-ui,-apple-system,"Segoe UI","Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:radial-gradient(1100px 640px at 50% -8%, #0f242f 0%, var(--bg) 58%); color:var(--txt); font-family:var(--sans); min-height:100vh}
+  .wrap{max-width:1180px; margin:0 auto; padding:20px 16px 44px}
+  .eyebrow{font:500 11px/1 var(--mono); letter-spacing:.22em; text-transform:uppercase; color:var(--teal)}
+  h1{font-size:21px; font-weight:600; margin:8px 0 5px}
+  .sub{font-size:13px; line-height:1.55; color:var(--txt2); max-width:680px}
+  .grid{display:grid; grid-template-columns:minmax(280px,1fr) 300px; gap:14px; margin-top:16px; align-items:start}
+  .panel{background:linear-gradient(180deg,var(--panel),var(--panel2)); border:1px solid var(--line); border-radius:14px; padding:13px}
+  .bar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px}
+  .btn{appearance:none; border:1px solid var(--teal); background:rgba(47,224,206,.08); color:var(--teal); font:500 12px var(--sans); padding:8px 12px; border-radius:9px; cursor:pointer; transition:.15s}
+  .btn:hover{background:rgba(47,224,206,.16)} .btn.alt{border-color:var(--line2); color:var(--txt2)}
+  .stage{position:relative; background:#0a0f15; border:1px solid var(--line); border-radius:12px; overflow:hidden; min-height:440px}
+  #view{display:block; width:100%; height:62vh; min-height:440px; touch-action:none}
+  .empty{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px; color:var(--txt3); font-size:13px; text-align:center; padding:24px; pointer-events:none}
+  .empty b{color:var(--teal); font-weight:500}
+  .legend{display:flex; gap:14px; margin-top:10px; font-size:12px; color:var(--txt2)}
+  .legend i{display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:5px; vertical-align:-1px}
+  .ph{font:500 10.5px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--txt3); margin:0 0 9px; display:flex; align-items:center; gap:7px}
+  .ph::after{content:""; flex:1; height:1px; background:var(--line)}
+  .search{width:100%; background:rgba(120,200,210,.06); border:1px solid var(--line); border-radius:8px; color:var(--txt); font:400 12.5px var(--sans); padding:8px 10px; margin-bottom:8px}
+  .search::placeholder{color:var(--txt3)}
+  .mlist{max-height:46vh; overflow:auto; margin:-2px -4px 0; padding:0 4px}
+  .mrow{display:flex; align-items:center; gap:8px; padding:6px 7px; border-radius:8px; cursor:pointer; font-size:12px; color:var(--txt2)}
+  .mrow:hover{background:rgba(120,200,210,.06)}
+  .mrow .d{width:8px; height:8px; border-radius:50%; flex:none; background:rgba(120,200,210,.25)}
+  .mrow.over .d{background:var(--red); box-shadow:0 0 6px var(--red)} .mrow.weak .d{background:var(--blue); box-shadow:0 0 6px var(--blue)}
+  .mrow .nm{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .count{font:500 11px var(--mono); color:var(--txt3); margin-bottom:8px}
+  details{margin-top:14px; border:1px solid var(--line); border-radius:12px; padding:0 13px}
+  summary{cursor:pointer; font:500 13px var(--sans); color:var(--txt); padding:12px 0; list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸ "; color:var(--teal)} details[open] summary::before{content:"▾ "}
+  .steps{counter-reset:s; list-style:none; padding:0; margin:0 0 14px}
+  .steps li{counter-increment:s; position:relative; padding:7px 0 7px 28px; font-size:12.5px; color:var(--txt2); line-height:1.5; border-bottom:1px solid rgba(120,200,210,.05)}
+  .steps li:last-child{border-bottom:0}
+  .steps li::before{content:counter(s); position:absolute; left:0; top:7px; width:19px; height:19px; border-radius:50%; background:var(--teal); color:#06241f; font:500 11px var(--mono); display:flex; align-items:center; justify-content:center}
+  .steps code{background:rgba(120,200,210,.1); padding:1px 5px; border-radius:4px; font:500 11.5px var(--mono); color:var(--teal)}
+  .notice{font-size:11.5px; color:var(--amber); margin-top:10px; line-height:1.5}
+  footer{margin-top:14px; font-size:11px; color:var(--txt3); line-height:1.5}
+  @media (max-width:860px){ .grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">최고 구현 수준 · 3D</div>
+  <h1>3D 근육 뷰어 — Z-Anatomy 연동</h1>
+  <p class="sub">변환한 Z-Anatomy <code style="color:var(--teal)">.glb</code>를 불러오면 회전 가능한 3D 근육 모델이 뜨고, 근육 메쉬 이름으로 <b style="color:var(--red)">과부하=빨강</b>·<b style="color:var(--blue)">약화=파랑</b>을 칠합니다. 이전 자세 분석의 과부하/약화 목록을 그대로 이 모델에 적용할 수 있어요.</p>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="bar">
+        <button class="btn" id="loadBtn">📂 모델 불러오기 (.glb)</button>
+        <input type="file" id="file" accept=".glb,.gltf" hidden>
+        <button class="btn alt" id="sampleBtn">예시 결과 적용</button>
+        <button class="btn alt" id="clearBtn">초기화</button>
+        <button class="btn alt" id="resetView">시점 리셋</button>
+      </div>
+      <div class="stage">
+        <canvas id="view"></canvas>
+        <div class="empty" id="empty"><div>🧍 3D 근육 모델이 여기 표시돼요</div><div><b>모델 불러오기 (.glb)</b>로 변환한 Z-Anatomy 파일을 여세요</div><div style="font-size:11px">드래그=회전 · 휠/핀치=확대 · 우클릭=이동</div></div>
+      </div>
+      <div class="legend"><span><i style="background:var(--red)"></i>과부하 (단축·긴장)</span><span><i style="background:var(--blue)"></i>약화 (이완)</span><span><i style="background:rgba(120,200,210,.3)"></i>정상</span></div>
+      <div class="notice" id="threeNote" style="display:none"></div>
+    </div>
+
+    <div class="panel">
+      <div class="ph">감지된 근육 메쉬</div>
+      <input class="search" id="search" placeholder="근육 이름 검색 (예: trapezius)">
+      <div class="count" id="count">모델을 불러오면 메쉬 목록이 나와요</div>
+      <div class="mlist" id="mlist"></div>
+    </div>
+  </div>
+
+  <details>
+    <summary>Z-Anatomy → .glb 변환 방법 (이 단계만 직접 하시면 됩니다)</summary>
+    <ol class="steps">
+      <li>Z-Anatomy 파일 다운로드 — <code>z-anatomy.com</code> 또는 GitHub의 Blender <code>.blend</code> 파일. (라이선스 CC BY 4.0 — 출처 표기 필요)</li>
+      <li>Blender에서 열고, 컬렉션에서 <code>Muscular system</code>(근육)만 남기고 뼈·혈관·신경 등 다른 시스템은 숨기거나 삭제해 가볍게 만들기.</li>
+      <li>(선택) 무거우면 각 오브젝트에 <code>Decimate</code> 모디파이어로 폴리곤을 줄이기. 웹에선 합쳐서 수십만~백만 폴리곤 이하 권장.</li>
+      <li>오브젝트 이름이 라틴 해부명(예: <code>Trapezius.l</code>, <code>Gluteus maximus.r</code>)인지 확인 — 이 이름으로 색칠을 매칭해요.</li>
+      <li>File → Export → <code>glTF 2.0 (.glb)</code> 선택. Format=<code>glb</code>, Include=Selected/Visible Objects. <b>압축(Draco)은 끄는 게 호환에 안전</b>해요.</li>
+      <li>나온 <code>.glb</code>를 위의 <b>모델 불러오기</b>로 열면 끝. (이 페이지를 다운로드해 브라우저로 직접 열면 인터넷 없이도 동작해요.)</li>
+    </ol>
+  </details>
+
+  <footer>이 뷰어는 모델을 당신 기기에서만 읽어요(업로드 없음). 자세 분석 결과 연결: 콘솔/코드에서 <code style="color:var(--teal)">applyResult(['trapR','qlL'], ['rhombL'])</code> 형태로 호출하면 해당 근육이 색칠됩니다. 의료 진단이 아닌 참고용이에요.</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  if(typeof THREE==='undefined'){ $('threeNote').style.display='block'; $('threeNote').textContent='3D 엔진(Three.js)을 불러오지 못했어요. 이 미리보기 환경이 막았을 수 있어요 — 파일을 다운로드해 브라우저에서 직접 열면 동작합니다.'; return; }
+
+  // ----- scene -----
+  var canvas=$('view'), scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x0a0f15);
+  var camera=new THREE.PerspectiveCamera(45,1,0.01,5000);
+  camera.position.set(0,1.4,3);
+  var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  var controls=new THREE.OrbitControls(camera,renderer.domElement);
+  controls.enableDamping=true; controls.dampingFactor=0.08;
+  scene.add(new THREE.HemisphereLight(0xffffff,0x223040,0.9));
+  var key=new THREE.DirectionalLight(0xffffff,0.9); key.position.set(2,4,3); scene.add(key);
+  var fill=new THREE.DirectionalLight(0xbfe3e0,0.4); fill.position.set(-3,1,-2); scene.add(fill);
+
+  function size(){var r=canvas.getBoundingClientRect(); renderer.setSize(r.width,r.height,false); camera.aspect=r.width/Math.max(r.height,1); camera.updateProjectionMatrix();}
+  window.addEventListener('resize',size); size();
+  (function loop(){requestAnimationFrame(loop); controls.update(); renderer.render(scene,camera);})();
+
+  // ----- materials -----
+  function mat(c,e){return new THREE.MeshStandardMaterial({color:c,emissive:e,emissiveIntensity:0.55,roughness:0.62,metalness:0.0});}
+  var OVER=mat(0xE2574A,0x5a1d18), WEAK=mat(0x3B8BD4,0x123247);
+
+  // ----- model state -----
+  var root=null, items=[], loader=new THREE.GLTFLoader();
+  function fitCamera(obj){
+    var box=new THREE.Box3().setFromObject(obj), c=box.getCenter(new THREE.Vector3()), s=box.getSize(new THREE.Vector3());
+    var maxd=Math.max(s.x,s.y,s.z)||1; obj.position.sub(c);
+    var dist=maxd*1.6/Math.tan(camera.fov*Math.PI/360);
+    camera.position.set(0, s.y*0.06, dist); camera.near=maxd/100; camera.far=maxd*100; camera.updateProjectionMatrix();
+    controls.target.set(0,0,0); controls.update();
+  }
+  function clearModel(){ if(root){scene.remove(root);} root=null; items=[]; }
+
+  function loadGLB(url){
+    clearModel();
+    loader.load(url,function(gltf){
+      root=gltf.scene; scene.add(root);
+      root.traverse(function(o){ if(o.isMesh){ o.userData.orig=o.material; o.userData.state=0; items.push({mesh:o,name:o.name||'(이름없음)',lname:(o.name||'').toLowerCase()}); }});
+      fitCamera(root); $('empty').style.display='none'; renderList(''); 
+    }, undefined, function(err){
+      $('threeNote').style.display='block';
+      $('threeNote').textContent='모델을 불러오지 못했어요. .glb 단일 파일인지, Draco 압축을 껐는지 확인해 주세요. (.gltf+bin 분리 파일은 단일 로드가 안 돼요)';
+    });
+  }
+  $('loadBtn').addEventListener('click',function(){$('file').click()});
+  $('file').addEventListener('change',function(e){var f=e.target.files[0]; if(!f)return; var url=URL.createObjectURL(f); $('threeNote').style.display='none'; loadGLB(url);});
+  $('resetView').addEventListener('click',function(){ if(root)fitCamera(root); });
+
+  // ----- highlight -----
+  function setState(item,st){ item.mesh.userData.state=st; item.mesh.material= st===1?OVER : st===2?WEAK : item.mesh.userData.orig; }
+  function clearAll(){ items.forEach(function(it){setState(it,0)}); renderList($('search').value); }
+  window.clearAll=clearAll;
+  $('clearBtn').addEventListener('click',clearAll);
+
+  // map our logic keys -> Z-Anatomy latin name substrings
+  var BASE={ trap:['trapezius'], scm:['sternocleido'], pec:['pectoralis'], abs:['rectus abdominis','rectus_abdominis','rectusabdominis'],
+    psoas:['psoas','iliacus'], quad:['vastus','rectus femoris','quadriceps'], itb:['iliotibial','tensor fascia','fasciae latae','tensor_fascia'],
+    rhomb:['rhomboid'], erector:['erector','spinalis','longissimus','iliocostalis'], ql:['quadratus lumborum','quadratus_lumborum'],
+    glute:['gluteus'], ham:['biceps femoris','semitendinosus','semimembranosus'] };
+  function sideOf(l){ if(/\.l\b|_l\b|\bleft\b|\bl$/.test(l))return 'L'; if(/\.r\b|_r\b|\bright\b|\br$/.test(l))return 'R'; return null; }
+  function matchKey(key){ var base=key.replace(/[LR]$/,''), side=/[LR]$/.test(key)?key.slice(-1):null, subs=BASE[base]||[base.toLowerCase()];
+    return items.filter(function(it){ var hit=subs.some(function(s){return it.lname.indexOf(s)>=0}); if(!hit)return false; if(side){var sd=sideOf(it.lname); return sd===null||sd===side;} return true; }); }
+  function applyResult(overKeys,weakKeys){ clearAll();
+    (weakKeys||[]).forEach(function(k){ matchKey(k).forEach(function(it){setState(it,2)}); });
+    (overKeys||[]).forEach(function(k){ matchKey(k).forEach(function(it){setState(it,1)}); });
+    renderList($('search').value);
+  }
+  window.applyResult=applyResult;
+  $('sampleBtn').addEventListener('click',function(){
+    if(!items.length){$('threeNote').style.display='block';$('threeNote').textContent='먼저 모델(.glb)을 불러오세요.';return;}
+    applyResult(['trapL','trapR','qlL','pecL','pecR','erectorL','erectorR'],['rhombL','rhombR','gluteR']);
+  });
+
+  // ----- mesh list -----
+  function renderList(q){
+    q=(q||'').toLowerCase();
+    var rows=items.filter(function(it){return !q||it.lname.indexOf(q)>=0});
+    $('count').textContent= items.length? (rows.length+' / '+items.length+'개 메쉬 · 클릭하면 색 순환(없음→빨강→파랑)') : '모델을 불러오면 메쉬 목록이 나와요';
+    var html=rows.map(function(it){var i=items.indexOf(it);var cls=it.mesh.userData.state===1?'over':it.mesh.userData.state===2?'weak':'';return '<div class="mrow '+cls+'" data-i="'+i+'"><span class="d"></span><span class="nm" title="'+it.name+'">'+it.name+'</span></div>';}).join('');
+    $('mlist').innerHTML=html;
+  }
+  $('mlist').addEventListener('click',function(e){var r=e.target.closest('.mrow');if(!r)return;var it=items[+r.dataset.i];var st=(it.mesh.userData.state+1)%3;setState(it,st);renderList($('search').value);});
+  $('search').addEventListener('input',function(){renderList(this.value)});
+})();
+</script>
+</body>
+</html>

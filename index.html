@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>바디 스캔 · 건강 데이터 시각화</title>
+<style>
+  :root{
+    --bg:#070B10; --panel:#0F161E; --panel2:#0B1119;
+    --line:rgba(120,200,210,.10); --line2:rgba(120,200,210,.20);
+    --txt:#E8F1F5; --txt2:#90A4B1; --txt3:#5B6D7A;
+    --teal:#33C9B7; --scan:#2FE0CE; --teal-dim:#155b54;
+    --amber:#ECA13C; --red:#E2574A; --green:#3FD0AE; --blue:#3B8BD4;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:radial-gradient(1100px 640px at 50% -8%,#0f242f 0%,var(--bg) 58%);color:var(--txt);font-family:var(--sans);-webkit-font-smoothing:antialiased;min-height:100vh}
+  .wrap{max-width:1280px;margin:0 auto;padding:20px 16px 48px}
+
+  header{margin-bottom:14px}
+  .eyebrow{font:500 11px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--teal)}
+  h1{font-size:22px;font-weight:600;margin:8px 0 5px;letter-spacing:-.01em}
+  .sub{font-size:13px;line-height:1.55;color:var(--txt2);max-width:660px}
+  .header-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:14px 0 4px}
+  .modebar{display:flex;gap:6px;background:rgba(120,200,210,.05);border:1px solid var(--line);border-radius:11px;padding:4px;width:fit-content}
+  .modebar button{appearance:none;border:0;background:transparent;color:var(--txt2);font:600 13px var(--sans);padding:8px 16px;border-radius:8px;cursor:pointer;transition:.15s;display:flex;align-items:center;gap:7px}
+  .modebar button.on{background:var(--teal);color:#06241f}
+  .modebar .em{font:500 10px var(--mono);opacity:.7}
+  .seg{display:inline-flex;background:rgba(120,200,210,.07);border:1px solid var(--line);border-radius:9px;padding:3px}
+  .seg button{appearance:none;border:0;background:transparent;color:var(--txt2);font:500 11.5px var(--sans);padding:5px 9px;border-radius:6px;cursor:pointer;transition:.15s}
+  .seg button.on{background:var(--teal);color:#06241f}
+  .topsex{display:inline-flex;align-items:center;gap:8px}
+  .topsex .tl{font:500 11px var(--mono);color:var(--txt3)}
+
+  .app{display:grid;grid-template-columns:262px 1fr minmax(280px,340px);grid-template-rows:50vh auto;gap:14px;align-items:stretch;margin-top:14px}
+  .app.musculo .only-int{display:none}
+  .app.internal .only-mus{display:none}
+  .panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:13px}
+  .col{display:flex;flex-direction:column;gap:14px}
+
+  /* inputs */
+  .grp{margin-bottom:14px}.grp:last-child{margin-bottom:0}
+  .grp-h{display:flex;align-items:center;gap:7px;font:500 10.5px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--txt3);margin:0 0 9px}
+  .grp-h::after{content:"";flex:1;height:1px;background:var(--line)}
+  .row{margin-bottom:10px}.row:last-child{margin-bottom:0}
+  .row-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+  .row-top label{font-size:12px;color:var(--txt2)}
+  .row-top .val{font:500 12px/1 var(--mono);color:var(--txt)}
+  .row-top .unit{color:var(--txt3);font-weight:400;margin-left:2px;font-size:10.5px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:3px;
+    background:linear-gradient(90deg,var(--teal-dim),var(--teal)) no-repeat;
+    background-size:var(--p,50%) 100%;background-color:rgba(120,200,210,.12);cursor:pointer;margin:0}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#cdeef0;border:2px solid #0a1016;box-shadow:0 0 0 1px var(--teal),0 0 7px rgba(47,224,206,.5)}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border:2px solid #0a1016;border-radius:50%;background:#cdeef0;box-shadow:0 0 0 1px var(--teal)}
+
+  /* visualization */
+  .stage-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap}
+  .stage-top .lab{font:500 10.5px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--txt3)}
+  .canvas{background:radial-gradient(420px 460px at 50% 42%,rgba(47,224,206,.06),transparent 70%);border:1px solid var(--line);border-radius:16px;padding:6px;overflow:hidden}
+  svg.bodysvg{display:block;width:100%;height:auto;max-height:50vh;margin:0 auto}
+  .skin{fill:var(--scan);stroke:rgba(120,230,220,.5);stroke-width:1}
+  #muscleSvg .skin{fill:url(#mgrad);fill-opacity:.85;stroke:rgba(120,45,35,.5)}
+  #organSvg.ext .skin{fill-opacity:.92}
+  #organSvg.ovl .skin{fill-opacity:.26}
+  #organSvg.int .skin{fill-opacity:.05}
+  #organSvg.ext #o_organs{opacity:0}
+  .msc{stroke:rgba(255,255,255,.12);stroke-width:.6}
+  #muscleSvg.front .m-back{display:none}
+  #muscleSvg.back .m-front{display:none}
+  #muscleSvg.front .d-back{display:none}
+  #muscleSvg.back .d-front{display:none}
+  .mdetail{stroke:#6f2c22;stroke-opacity:.34;stroke-width:1;fill:none;stroke-linecap:round}
+  @keyframes beat{0%,100%{transform:scale(1)}16%{transform:scale(1.13)}30%{transform:scale(1)}44%{transform:scale(1.05)}58%{transform:scale(1)}}
+  @keyframes aura{0%,100%{opacity:var(--ao,0)}50%{opacity:calc(var(--ao,0)*1.7)}}
+  #o_heart{transform-box:fill-box;transform-origin:center;animation:beat var(--hd,1s) ease-in-out infinite}
+  #aura{animation:aura 2.6s ease-in-out infinite}
+  @media(prefers-reduced-motion:reduce){#o_heart,#aura{animation:none}}
+  .legend{display:flex;gap:14px;justify-content:center;margin-top:8px;font-size:11px;color:var(--txt2)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+
+  /* posture panel */
+  .drop{border:1.5px dashed var(--line2);border-radius:12px;padding:10px;text-align:center;color:var(--txt2);font-size:12px;cursor:pointer;transition:.15s;background:rgba(120,200,210,.03)}
+  .drop.hot{border-color:var(--teal);background:rgba(47,224,206,.07);color:var(--txt)}
+  .drop b{color:var(--teal);font-weight:500}
+  .auto-row{display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap}
+  .poserow{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  .editor{display:block;width:100%;height:auto;max-height:26vh;background:#0a0f15;border-radius:10px;touch-action:none;margin:8px 0 0;flex:1 1 180px;min-width:150px}
+  .kp{fill:#2FE0CE;stroke:#06241f;stroke-width:1.5;cursor:grab}.kp:active{cursor:grabbing}
+  .skl{stroke:rgba(47,224,206,.55);stroke-width:1.5;fill:none}
+  .guide{flex:0 0 172px;background:rgba(120,200,210,.04);border:1px solid var(--line);border-radius:10px;padding:8px;margin-top:8px}
+  .guide .gt{font:500 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--teal);margin-bottom:6px;text-align:center}
+  .guide svg{display:block;width:100%;height:auto}
+  .glab{font:500 9px var(--sans);fill:var(--txt2)}
+  .gdot{fill:#2FE0CE;stroke:#06241f;stroke-width:1}
+  .gline{stroke:rgba(120,200,210,.4);stroke-width:.8}
+  .gbody{fill:rgba(120,200,210,.10);stroke:rgba(120,200,210,.28);stroke-width:1}
+  .gcap{font-size:10.5px;color:var(--txt3);line-height:1.45;margin-top:7px}
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+  .metric{background:rgba(120,200,210,.05);border:1px solid var(--line);border-radius:9px;padding:7px 9px}
+  .metric .k{font:500 9.5px/1 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--txt3)}
+  .metric .v{font:500 14px/1.2 var(--mono);margin-top:3px}
+  .metric .d{font-size:10px;color:var(--txt2);margin-top:1px}
+
+  /* 3D mesh list */
+  .mrow3d{display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:7px;cursor:pointer;color:var(--txt2)}
+  .mrow3d:hover{background:rgba(120,200,210,.06)}
+  .d3d{width:7px;height:7px;border-radius:50%;flex:none;background:rgba(120,200,210,.25)}
+  .mrow3d.over .d3d{background:var(--red);box-shadow:0 0 5px var(--red)}
+  .mrow3d.weak .d3d{background:var(--blue);box-shadow:0 0 5px var(--blue)}
+  .glb-guide{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:0 12px}
+  .glb-guide summary{cursor:pointer;font:500 12px var(--sans);color:var(--txt2);padding:10px 0;list-style:none}
+  .glb-guide summary::-webkit-details-marker{display:none}
+  .glb-guide summary::before{content:"▸ ";color:var(--teal)}
+  .glb-guide[open] summary::before{content:"▾ "}
+  .glb-guide ol{padding:0 0 10px;margin:0;counter-reset:gl;list-style:none}
+  .glb-guide li{counter-increment:gl;position:relative;padding:5px 0 5px 24px;font-size:11.5px;color:var(--txt2);line-height:1.5;border-bottom:1px solid rgba(120,200,210,.05)}
+  .glb-guide li:last-child{border-bottom:0}
+  .glb-guide li::before{content:counter(gl);position:absolute;left:0;top:5px;width:17px;height:17px;border-radius:50%;background:var(--teal);color:#06241f;font:500 10px var(--mono);display:flex;align-items:center;justify-content:center}
+
+  /* report */
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .chip{display:flex;flex-direction:column;gap:2px;padding:7px 9px;border-radius:9px;background:rgba(120,200,210,.05);border:1px solid var(--line);min-width:54px}
+  .chip .k{font:500 9px/1 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--txt3)}
+  .chip .v{font:500 13px/1.1 var(--mono);color:var(--txt)}
+  .chip .s{font-size:9.5px;line-height:1}
+  .rep-h{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px}
+  .rep-h .t{font:500 10.5px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--txt3)}
+  .summary{background:rgba(47,224,206,.06);border:1px solid var(--line2);border-radius:10px;padding:10px 11px;font-size:13px;line-height:1.5;color:var(--txt);margin-bottom:12px}
+  .blk{margin-bottom:13px}.blk:last-child{margin-bottom:0}
+  .blk-t{font:500 10.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--txt3);margin-bottom:6px}
+  .blk p{margin:0;font-size:12.5px;line-height:1.55;color:var(--txt2)}
+  .flag{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid rgba(120,200,210,.05);font-size:12px}
+  .flag:last-child{border-bottom:0}
+  .flag .dot{width:7px;height:7px;border-radius:50%;margin-top:4px;flex:none;box-shadow:0 0 6px currentColor}
+  .flag .ft{flex:1}.flag .fi{color:var(--txt)}.flag .fr{color:var(--txt2);font-size:11.5px;margin-top:1px}
+  .mtags{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+  .tag{font:500 11px var(--sans);padding:3px 8px;border-radius:7px}
+  .tag.over{background:rgba(226,87,74,.14);color:#f0a59c;border:1px solid rgba(226,87,74,.3)}
+  .tag.weak{background:rgba(59,139,212,.14);color:#9fc6ec;border:1px solid rgba(59,139,212,.3)}
+  .acts{counter-reset:a;list-style:none;padding:0;margin:0}
+  .acts li{counter-increment:a;position:relative;padding:6px 0 6px 26px;font-size:12.5px;color:var(--txt2);line-height:1.45;border-bottom:1px solid rgba(120,200,210,.05)}
+  .acts li:last-child{border-bottom:0}
+  .acts li::before{content:counter(a);position:absolute;left:0;top:6px;width:18px;height:18px;border-radius:50%;background:var(--teal);color:#06241f;font:500 11px var(--mono);display:flex;align-items:center;justify-content:center}
+  .src-tag{font:500 9px var(--mono);letter-spacing:.07em;text-transform:uppercase;padding:2px 6px;border-radius:5px;border:1px solid var(--line);color:var(--txt3)}
+  .src-ai{color:var(--teal);border-color:var(--teal)}
+  .ai-btn{appearance:none;border:1px solid var(--teal);background:rgba(47,224,206,.08);color:var(--teal);font:500 11px var(--sans);padding:6px 11px;border-radius:8px;cursor:pointer;transition:.15s}
+  .ai-btn:hover{background:rgba(47,224,206,.16)}.ai-btn:disabled{opacity:.5;cursor:default}
+  .spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(47,224,206,.25);border-top-color:var(--teal);border-radius:50%;animation:rot .7s linear infinite;vertical-align:-1px;margin-right:6px}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  .notice{font-size:11px;color:var(--amber);margin-top:8px}
+  footer{margin-top:14px;font-size:11px;color:var(--txt3);line-height:1.5;display:flex;gap:7px;align-items:flex-start}
+  footer b{color:var(--txt2);font-weight:500}
+  /* 2×2 grid placement */
+  .app-sidebar{grid-column:1;grid-row:1;overflow-y:auto}
+  .app-posture{grid-column:2;grid-row:1;overflow-y:auto}
+  .app-organ{grid-column:2;grid-row:1}
+  .app-report{grid-column:3;grid-row:1;overflow-y:auto;display:flex;flex-direction:column}
+  #panel3d{grid-column:1/4;grid-row:2}
+  /* panel3d inner layout */
+  .panel3d-body{display:flex;gap:14px;align-items:flex-start;margin-top:8px}
+  .panel3d-sidebar{width:262px;flex:none;max-height:42vh;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+  .panel3d-canvas{flex:1;min-width:0}
+  .panel3d-legend{display:flex;flex-direction:column;gap:7px;font-size:11px;color:var(--txt2);padding-bottom:8px;border-bottom:1px solid var(--line)}
+  .app-posture .guide{flex:0 0 82px}
+  .app-posture .gcap{font-size:9px;margin-top:3px}
+  .pose-split{display:flex;gap:10px;align-items:flex-start}
+  .pose-split>div{flex:1 1 0;min-width:0}
+  .pose-split-lbl{font:600 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:6px;padding:2px 0}
+  @media(max-width:920px){
+    .app{grid-template-columns:1fr;grid-template-rows:auto;align-items:start}
+    .app-sidebar,.app-posture,.app-report,.app-organ{grid-column:1;grid-row:auto;height:auto;max-height:none}
+    #panel3d{grid-column:1;grid-row:auto}
+    .pose-split{flex-direction:column}
+    .editor{max-height:38vh;flex:1 1 220px;min-width:190px}
+    .app-posture .guide{flex:0 0 130px}
+    .app-posture .gcap{font-size:10.5px}
+    .panel3d-body{flex-direction:column}
+    .panel3d-sidebar{width:100%;max-height:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">바디 스캔 · Stage 1–4</div>
+    <h1>건강 데이터 · 인체 시각화</h1>
+    <p class="sub">체형 측정값·검진 수치·전신 사진으로 개인화된 인체를 시각화하고 현재 신체 상태를 분석합니다. 측정값 기반 추정이며 의료 진단이 아니에요.</p>
+    <div class="header-row">
+      <div class="modebar" id="modebar">
+        <button data-m="musculo" class="on">근골격 · 체형 <span class="em">자세·근육</span></button>
+        <button data-m="internal">내과 · 장기 <span class="em">검진·장기</span></button>
+      </div>
+      <div class="topsex">
+        <span class="tl">성별</span>
+        <div class="seg" id="sexSeg">
+          <button data-s="M" class="on">남</button>
+          <button data-s="F">여</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app musculo" id="app">
+    <!-- sidebar -->
+    <div class="panel app-sidebar">
+      <div class="only-mus" id="ctlMusculo"></div>
+      <div class="only-int" id="ctlInternal"></div>
+    </div>
+
+      <!-- STAGE 3: posture analysis -->
+      <div class="panel only-mus app-posture">
+        <div class="stage-top">
+          <span class="lab">자세 분석 · 사진 자동 인식</span>
+        </div>
+
+        <div class="pose-split">
+        <!-- front -->
+        <div id="poseFront">
+          <div class="pose-split-lbl">정면</div>
+          <div class="drop" id="dropF">정면 전신 사진을 <b>끌어다 놓거나 탭</b>해 올린 뒤 <b>자동 인식</b> · 어긋난 점은 끌어 보정</div>
+          <input type="file" id="fileF" accept="image/*" hidden>
+          <div class="auto-row">
+            <button class="ai-btn" id="autoF">📷 자동 인식 (정면)</button>
+            <span id="msgF" style="font-size:11px;color:var(--txt3)"></span>
+          </div>
+          <div class="poserow">
+            <svg id="editorF" class="editor" viewBox="0 0 300 440">
+              <image class="photo" x="0" y="0" width="300" height="440" preserveAspectRatio="xMidYMid meet" opacity="0"></image>
+              <g class="skel"></g><g class="kps"></g>
+            </svg>
+            <div class="guide">
+              <div class="gt">정면 마커 위치</div>
+              <svg viewBox="0 0 180 300">
+                <circle class="gbody" cx="65" cy="24" r="12"/>
+                <path class="gbody" d="M48 46 L82 46 L76 132 L54 132 Z"/>
+                <path class="gbody" d="M54 130 L76 130 L74 152 L56 152 Z"/>
+                <rect class="gbody" x="57" y="150" width="8" height="135" rx="4"/>
+                <rect class="gbody" x="65" y="150" width="8" height="135" rx="4"/>
+                <rect class="gbody" x="40" y="50" width="7" height="80" rx="3"/>
+                <rect class="gbody" x="83" y="50" width="7" height="80" rx="3"/>
+                <circle class="gdot" cx="65" cy="18" r="3.2"/><circle class="gdot" cx="74" cy="20" r="3.2"/>
+                <circle class="gdot" cx="49" cy="50" r="3.2"/><circle class="gdot" cx="81" cy="50" r="3.2"/>
+                <circle class="gdot" cx="58" cy="150" r="3.2"/><circle class="gdot" cx="72" cy="150" r="3.2"/>
+                <circle class="gdot" cx="61" cy="216" r="3.2"/><circle class="gdot" cx="69" cy="216" r="3.2"/>
+                <circle class="gdot" cx="61" cy="283" r="3.2"/><circle class="gdot" cx="69" cy="283" r="3.2"/>
+                <line class="gline" x1="74" y1="20" x2="100" y2="20"/><text class="glab" x="103" y="23">귀 · 코</text>
+                <line class="gline" x1="81" y1="50" x2="104" y2="48"/><text class="glab" x="107" y="46">어깨</text><text class="glab" x="107" y="56" style="fill:var(--txt3)">봉우리 끝</text>
+                <line class="gline" x1="72" y1="150" x2="104" y2="150"/><text class="glab" x="107" y="148">골반</text><text class="glab" x="107" y="158" style="fill:var(--txt3)">옆 튀어나온뼈</text>
+                <line class="gline" x1="69" y1="216" x2="104" y2="216"/><text class="glab" x="107" y="219">무릎 중앙</text>
+                <line class="gline" x1="69" y1="283" x2="104" y2="283"/><text class="glab" x="107" y="281">발목</text><text class="glab" x="107" y="291" style="fill:var(--txt3)">복사뼈</text>
+              </svg>
+              <div class="gcap">어깨=봉우리 끝, 골반=옆으로 튀어나온 뼈(고관절), 발목=복사뼈.</div>
+            </div>
+          </div>
+          <div class="metrics" id="metricsF"></div>
+        </div>
+
+        <!-- side -->
+        <div id="poseSide">
+          <div class="pose-split-lbl">측면</div>
+          <div class="drop" id="dropS">측면 전신 사진(옆모습)을 <b>끌어다 놓거나 탭</b>해 올린 뒤 <b>자동 인식</b> · 거북목·라운드숄더용</div>
+          <input type="file" id="fileS" accept="image/*" hidden>
+          <div class="auto-row">
+            <button class="ai-btn" id="autoS">📷 자동 인식 (측면)</button>
+            <span id="msgS" style="font-size:11px;color:var(--txt3)"></span>
+          </div>
+          <div class="poserow">
+            <svg id="editorS" class="editor" viewBox="0 0 300 440">
+              <image class="photo" x="0" y="0" width="300" height="440" preserveAspectRatio="xMidYMid meet" opacity="0"></image>
+              <g class="skel"></g><g class="kps"></g>
+            </svg>
+            <div class="guide">
+              <div class="gt">측면 마커 위치</div>
+              <svg viewBox="0 0 180 300">
+                <circle class="gbody" cx="66" cy="24" r="12"/>
+                <path class="gbody" d="M58 44 L74 44 L72 150 L60 150 Z"/>
+                <rect class="gbody" x="60" y="150" width="10" height="135" rx="4"/>
+                <rect class="gbody" x="70" y="52" width="6" height="78" rx="3"/>
+                <line class="gline" style="stroke-dasharray:3 3" x1="64" y1="14" x2="64" y2="288"/>
+                <circle class="gdot" cx="73" cy="22" r="3.2"/><circle class="gdot" cx="64" cy="48" r="3.2"/>
+                <circle class="gdot" cx="64" cy="150" r="3.2"/><circle class="gdot" cx="64" cy="216" r="3.2"/>
+                <circle class="gdot" cx="64" cy="283" r="3.2"/>
+                <line class="gline" x1="73" y1="22" x2="100" y2="22"/><text class="glab" x="103" y="25">귀 (귀구슬)</text>
+                <line class="gline" x1="64" y1="48" x2="100" y2="48"/><text class="glab" x="103" y="51">어깨 중앙</text>
+                <line class="gline" x1="64" y1="150" x2="100" y2="150"/><text class="glab" x="103" y="153">골반(고관절)</text>
+                <line class="gline" x1="64" y1="216" x2="100" y2="216"/><text class="glab" x="103" y="219">무릎</text>
+                <line class="gline" x1="64" y1="283" x2="100" y2="283"/><text class="glab" x="103" y="286">발목</text>
+              </svg>
+              <div class="gcap">점선은 기준 수직선. 옆에서 봤을 때 귀가 어깨보다 앞에 있으면 거북목 신호예요.</div>
+            </div>
+          </div>
+          <div class="metrics" id="metricsS"></div>
+        </div>
+        </div><!-- /pose-split -->
+      </div><!-- /app-posture -->
+
+      <!-- Stage 4: 3D muscle map (Z-Anatomy) -->
+      <div class="panel only-mus" id="panel3d">
+        <div class="stage-top">
+          <span class="lab">3D 근육 맵 · Z-Anatomy</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="ai-btn" id="load3dBtn">📂 .glb 불러오기</button>
+            <input type="file" id="file3d" accept=".glb,.gltf" hidden>
+            <button class="ai-btn" id="reset3dView" style="display:none">시점 리셋</button>
+            <button class="ai-btn" id="sample3d" style="display:none;border-color:var(--line2);color:var(--txt2)">예시 결과 적용</button>
+            <button class="ai-btn" id="clear3d" style="display:none">초기화</button>
+            <button class="ai-btn" id="xray3d" style="display:none">겉 근육 숨기기</button>
+          </div>
+        </div>
+        <div class="panel3d-body">
+          <!-- left: legend + notice + mesh list -->
+          <div class="panel3d-sidebar">
+            <div class="panel3d-legend">
+              <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--red)"></i>과부하 (단축·긴장)</span>
+              <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--blue)"></i>약화 (이완)</span>
+              <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:rgba(120,200,210,.3)"></i>정상</span>
+            </div>
+            <div id="notice3d" style="display:none;font-size:11.5px;color:var(--amber)"></div>
+            <div id="meshListPanel" style="display:none">
+              <div style="font:500 10.5px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--txt3);margin:0 0 8px;display:flex;align-items:center;gap:7px">감지된 근육 메쉬<span style="flex:1;height:1px;background:var(--line);display:inline-block"></span></div>
+              <input id="search3d" placeholder="근육 이름 검색 (예: trapezius)" style="width:100%;background:rgba(120,200,210,.06);border:1px solid var(--line);border-radius:8px;color:var(--txt);font:400 12.5px var(--sans);padding:8px 10px;margin-bottom:8px;box-sizing:border-box;outline:none">
+              <div id="count3d" style="font:500 11px var(--mono);color:var(--txt3);margin-bottom:7px"></div>
+              <div id="mlist3d" style="overflow-y:auto;margin:0 -2px;padding:0 2px"></div>
+            </div>
+          </div>
+          <!-- right: 3D canvas -->
+          <div class="panel3d-canvas">
+            <div style="position:relative;background:#0a0f15;border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:260px">
+              <canvas id="view3d" style="display:block;width:100%;height:42vh;min-height:260px;touch-action:none"></canvas>
+              <div id="empty3d" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--txt3);font-size:13px;text-align:center;padding:24px;pointer-events:none">
+                <div>🧍 3D 근육 모델이 여기 표시돼요</div>
+                <div><span style="color:var(--teal);font-weight:500">.glb 불러오기</span>로 Z-Anatomy 파일을 여세요</div>
+                <div style="font-size:11px">드래그=회전 · 휠/핀치=확대 · 우클릭=이동</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- organ visualization -->
+      <div class="panel only-int app-organ">
+        <div class="stage-top">
+          <span class="lab">장기 · 내부 시각화</span>
+          <div class="seg" id="viewSeg">
+            <button data-v="ext">외형</button>
+            <button data-v="ovl" class="on">겹쳐보기</button>
+            <button data-v="int">내부</button>
+          </div>
+        </div>
+        <div class="canvas">
+          <svg id="organSvg" class="bodysvg ovl" viewBox="0 0 340 560" role="img" aria-label="검진 수치가 반영된 장기 아바타"></svg>
+        </div>
+        <div class="legend">
+          <span><i style="background:#4CAF8A"></i>정상</span>
+          <span><i style="background:#ECA13C"></i>경계</span>
+          <span><i style="background:#E2574A"></i>이상</span>
+        </div>
+      </div>
+
+    <!-- report -->
+    <div class="panel app-report">
+      <div class="only-mus">
+        <div class="chips" id="chipsM"></div>
+        <div class="rep-h">
+          <span class="t">근골격 리포트</span>
+          <button class="ai-btn" id="aiBtnM">AI로 더 자세히</button>
+        </div>
+        <div id="reportM"></div>
+        <div class="notice" id="noticeM" style="display:none"></div>
+      </div>
+      <div class="only-int">
+        <div class="chips" id="chipsI"></div>
+        <div class="rep-h">
+          <span class="t">내과 리포트</span>
+          <button class="ai-btn" id="aiBtnI">AI로 더 자세히</button>
+        </div>
+        <div id="reportI"></div>
+        <div class="notice" id="noticeI" style="display:none"></div>
+      </div>
+      <footer>
+        <span style="color:var(--teal)">ⓘ</span>
+        <span><b>의료 진단이 아닌 참고용</b>입니다. 자세·근육 분석은 단순 스크리닝이며 전문의 진단을 대체하지 않아요.</span>
+      </footer>
+    </div>
+  </div>
+  <!-- hidden: JS-referenced elements removed from visible layout but still needed for muscle state -->
+  <div aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none">
+    <div id="planeSeg"><button data-p="front" class="on"></button><button data-p="back"></button></div>
+    <svg id="muscleSvg" viewBox="0 0 340 560" class="bodysvg front"></svg>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id)};
+var clamp=function(v,a,b){return Math.max(a,Math.min(b,v))};
+var norm=function(v,a,b){return clamp((v-a)/(b-a),0,1)};
+function hx(c){c=c.replace('#','');return[parseInt(c.substr(0,2),16),parseInt(c.substr(2,2),16),parseInt(c.substr(4,2),16)]}
+function mix(c1,c2,t){var a=hx(c1),b=hx(c2),r=function(i){return Math.round(a[i]+(b[i]-a[i])*t)};return'rgb('+r(0)+','+r(1)+','+r(2)+')'}
+
+/* ── Slider definitions ── */
+var musGroups=[
+  {title:'기본',items:[
+    {id:'age',   label:'나이',      min:15,max:80, step:1,  val:38, unit:'세'},
+    {id:'height',label:'키',        min:140,max:200,step:1, val:174,unit:'cm'},
+    {id:'weight',label:'몸무게',    min:40, max:130,step:1, val:82, unit:'kg'}
+  ]},
+  {title:'체형 정밀',items:[
+    {id:'bodyfat', label:'체지방률',   min:5,  max:45, step:.5,val:24, unit:'%'},
+    {id:'muscle',  label:'골격근량',   min:18, max:50, step:.5,val:32, unit:'kg'},
+    {id:'visceral',label:'내장지방',   min:1,  max:20, step:1, val:11, unit:'lv'},
+    {id:'chest',   label:'가슴둘레',   min:75, max:130,step:1, val:100,unit:'cm'},
+    {id:'waist',   label:'허리둘레',   min:60, max:130,step:1, val:92, unit:'cm'},
+    {id:'hip',     label:'엉덩이둘레', min:75, max:130,step:1, val:100,unit:'cm'},
+    {id:'thigh',   label:'허벅지둘레', min:40, max:75, step:1, val:56, unit:'cm'},
+    {id:'arm',     label:'팔뚝둘레',   min:22, max:45, step:1, val:32, unit:'cm'},
+    {id:'wrist',   label:'손목·프레임',min:13, max:22, step:.5,val:17, unit:'cm'}
+  ]}
+];
+var intGroups=[
+  {title:'건강 수치 · 검진',items:[
+    {id:'alt',    label:'ALT · 간',    min:5,  max:120,step:1, val:52, unit:'U/L'},
+    {id:'ldl',    label:'LDL · 혈관',  min:50, max:250,step:1, val:158,unit:'mg/dL'},
+    {id:'sbp',    label:'수축기 혈압', min:90, max:180,step:1, val:138,unit:'mmHg'},
+    {id:'glucose',label:'공복혈당',    min:70, max:200,step:1, val:112,unit:'mg/dL'},
+    {id:'egfr',   label:'eGFR · 신장', min:15, max:120,step:1, val:88, unit:''},
+    {id:'crp',    label:'CRP · 염증',  min:0,  max:10, step:.1,val:.6, unit:'mg/L'},
+    {id:'hb',     label:'헤모글로빈',  min:7,  max:18, step:.1,val:15, unit:'g/dL'}
+  ]}
+];
+
+/* ── State ── */
+var SEX='M', allIds=[], lastState={}, lastPf=null, lastPs=null, lastRk=null;
+var LS_KEY='bodyscan_v1';
+function saveState(){var o={sex:SEX};allIds.forEach(function(id){var el=$(id);if(el)o[id]=el.value});try{localStorage.setItem(LS_KEY,JSON.stringify(o))}catch(e){}}
+function loadState(){try{var r=localStorage.getItem(LS_KEY);return r?JSON.parse(r):null}catch(e){return null}}
+
+function buildCtl(host,groups){
+  var h='';
+  groups.forEach(function(g){
+    h+='<div class="grp"><div class="grp-h">'+g.title+'</div>';
+    g.items.forEach(function(it){
+      allIds.push(it.id);
+      h+='<div class="row"><div class="row-top"><label>'+it.label+'</label>'+
+         '<span class="val"><b id="v_'+it.id+'"></b><span class="unit">'+it.unit+'</span></span></div>'+
+         '<input type="range" id="'+it.id+'" min="'+it.min+'" max="'+it.max+'" step="'+it.step+'" value="'+it.val+'"></div>';
+    });
+    h+='</div>';
+  });
+  host.innerHTML=h;
+}
+buildCtl($('ctlMusculo'),musGroups);
+buildCtl($('ctlInternal'),intGroups);
+
+var saved=loadState();
+if(saved){
+  if(saved.sex)SEX=saved.sex;
+  allIds.forEach(function(id){if(saved[id]!=null&&$(id))$(id).value=saved[id]});
+  if(SEX==='F')[].forEach.call($('sexSeg').children,function(b){b.classList.toggle('on',b.dataset.s==='F')});
+}
+function S(){var o={sex:SEX};allIds.forEach(function(id){var el=$(id);if(el)o[id]=parseFloat(el.value)});return o}
+
+/* ── Body geometry ── */
+var CX=170, L={neckTop:96,shoulder:118,chest:158,waist:222,hip:260,pelvis:292,thighTop:288,ankle:500};
+function shape(st){
+  var f=norm(st.bodyfat,5,45),m=norm(st.muscle,18,50),v=norm(st.visceral,1,20),fr=norm(st.wrist,13,22),F=st.sex==='F'?1:0;
+  return{ncH:clamp(13+fr*6,10,22),shH:clamp(50+norm(st.chest,75,130)*16+fr*10+m*10-F*9,40,86),
+    chH:clamp(38+norm(st.chest,75,130)*30*(1+0.06*m)+F*5,34,78),
+    wsH:clamp((28+norm(st.waist,60,130)*34)*(1+0.10*f),24,74),
+    hpH:clamp((40+norm(st.hip,75,130)*30)*(1+0.06*f)+F*6,36,80),
+    thH:clamp((16+norm(st.thigh,40,75)*18)*(1+0.06*m+0.05*f),14,38),
+    clH:clamp(12+norm(st.thigh,40,75)*8+m*3,11,22),
+    amH:clamp((9+norm(st.arm,22,45)*13)*(1+0.05*m),8,24),
+    blRx:clamp(18+(norm(st.waist,60,130)*0.5+f*0.3+v*0.5)*40,16,46),
+    blRy:clamp(10+(f*0.4+v*0.6)*30,8,34),hs:clamp(st.height/174,0.9,1.1)};
+}
+function cr(p){var n=p.length,d='M '+p[0][0]+' '+p[0][1]+' ';for(var i=0;i<n;i++){var a=p[(i-1+n)%n],b=p[i],c=p[(i+1)%n],e=p[(i+2)%n];d+='C '+(b[0]+(c[0]-a[0])/6)+' '+(b[1]+(c[1]-a[1])/6)+' '+(c[0]-(e[0]-b[0])/6)+' '+(c[1]-(e[1]-b[1])/6)+' '+c[0]+' '+c[1]+' ';}return d+'Z'}
+function torso(s){return cr([[CX-s.ncH,L.neckTop],[CX-s.shH,L.shoulder],[CX-s.chH,L.chest],[CX-s.wsH,L.waist],[CX-s.hpH,L.hip],[CX-s.hpH*.62,L.pelvis-4],[CX,L.pelvis],[CX+s.hpH*.62,L.pelvis-4],[CX+s.hpH,L.hip],[CX+s.wsH,L.waist],[CX+s.chH,L.chest],[CX+s.shH,L.shoulder],[CX+s.ncH,L.neckTop]])}
+function leg(s,sd){var x=CX+sd*(s.hpH*.40),tt=L.thighTop,an=L.ankle,t=s.thH,c=s.clH;return'M '+(x-t)+' '+(tt+6)+' Q '+(x-t)+' '+(tt-2)+' '+x+' '+(tt-2)+' Q '+(x+t)+' '+(tt-2)+' '+(x+t)+' '+(tt+6)+' L '+(x+c)+' '+an+' Q '+(x+c)+' '+(an+8)+' '+x+' '+(an+8)+' Q '+(x-c)+' '+(an+8)+' '+(x-c)+' '+an+' Z'}
+function arm(s,sd){var x=CX+sd*(s.shH*.92),at=L.shoulder+6,ab=L.hip+8,a=s.amH,w=s.amH*.62;return'M '+(x-a)+' '+(at+4)+' Q '+(x-a)+' '+(at-3)+' '+x+' '+(at-3)+' Q '+(x+a)+' '+(at-3)+' '+(x+a)+' '+(at+4)+' L '+(x+w)+' '+ab+' Q '+(x+w)+' '+(ab+7)+' '+x+' '+(ab+7)+' Q '+(x-w)+' '+(ab+7)+' '+(x-w)+' '+ab+' Z'}
+function skinSVG(p){return'<path id="'+p+'torso" class="skin"/><path id="'+p+'armL" class="skin"/><path id="'+p+'armR" class="skin"/><path id="'+p+'legL" class="skin"/><path id="'+p+'legR" class="skin"/><ellipse id="'+p+'belly" class="skin"/><ellipse id="'+p+'neck" class="skin" cx="170" cy="106" rx="13" ry="14"/><ellipse id="'+p+'head" class="skin" cx="170" cy="60" rx="24" ry="30"/>'}
+function sa(id,a,v){var el=$(id);if(el)el.setAttribute(a,v)}
+function applyBody(p,s){sa(p+'torso','d',torso(s));sa(p+'legL','d',leg(s,-1));sa(p+'legR','d',leg(s,1));sa(p+'armL','d',arm(s,-1));sa(p+'armR','d',arm(s,1));sa(p+'belly','cx',CX);sa(p+'belly','cy',L.waist+6);sa(p+'belly','rx',s.blRx);sa(p+'belly','ry',s.blRy);sa(p+'neck','rx',s.ncH*.85);var fig=$(p+'figure');if(fig)fig.setAttribute('transform','translate('+CX+','+L.ankle+') scale('+s.hs+') translate('+(-CX)+','+(-L.ankle)+')');}
+
+/* ── Muscles ── */
+var MUSC=[
+  {id:'trapL',n:'좌 상부승모근',pl:'m-both',c:[138,124,22,14]},{id:'trapR',n:'우 상부승모근',pl:'m-both',c:[202,124,22,14]},
+  {id:'scmL',n:'좌 흉쇄유돌근',pl:'m-front',c:[158,108,8,17]},{id:'scmR',n:'우 흉쇄유돌근',pl:'m-front',c:[182,108,8,17]},
+  {id:'pecL',n:'좌 대흉근',pl:'m-front',c:[156,150,15,13]},{id:'pecR',n:'우 대흉근',pl:'m-front',c:[184,150,15,13]},
+  {id:'abs',n:'복근',pl:'m-front',c:[170,202,20,26]},
+  {id:'psoasL',n:'좌 장요근',pl:'m-front',c:[160,248,9,12]},{id:'psoasR',n:'우 장요근',pl:'m-front',c:[180,248,9,12]},
+  {id:'quadL',n:'좌 대퇴사두',pl:'m-front',c:[154,360,13,42]},{id:'quadR',n:'우 대퇴사두',pl:'m-front',c:[186,360,13,42]},
+  {id:'itbL',n:'좌 장경인대',pl:'m-both',c:[142,372,9,42]},{id:'itbR',n:'우 장경인대',pl:'m-both',c:[198,372,9,42]},
+  {id:'rhombL',n:'좌 능형근',pl:'m-back',c:[158,150,14,15]},{id:'rhombR',n:'우 능형근',pl:'m-back',c:[182,150,14,15]},
+  {id:'erectorL',n:'좌 척추기립근',pl:'m-back',c:[162,200,8,52]},{id:'erectorR',n:'우 척추기립근',pl:'m-back',c:[178,200,8,52]},
+  {id:'qlL',n:'좌 요방형근',pl:'m-back',c:[150,234,12,20]},{id:'qlR',n:'우 요방형근',pl:'m-back',c:[190,234,12,20]},
+  {id:'gluteL',n:'좌 중둔근',pl:'m-back',c:[152,290,19,17]},{id:'gluteR',n:'우 중둔근',pl:'m-back',c:[188,290,19,17]},
+  {id:'hamL',n:'좌 햄스트링',pl:'m-back',c:[154,362,13,42]},{id:'hamR',n:'우 햄스트링',pl:'m-back',c:[186,362,13,42]}
+];
+var MNAME={};MUSC.forEach(function(m){MNAME[m.id]=m.n});
+function muscleSVG(){return MUSC.map(function(m){return'<ellipse id="m_'+m.id+'" class="msc '+m.pl+'" cx="'+m.c[0]+'" cy="'+m.c[1]+'" rx="'+m.c[2]+'" ry="'+m.c[3]+'" fill="transparent"><title>'+m.n+'</title></ellipse>'}).join('')}
+function frontDetail(){return'<path class="mdetail" d="M150 132 Q160 129 170 133 M190 132 Q180 129 170 133"/><path class="mdetail" d="M170 136 L170 178"/><path class="mdetail" d="M152 150 Q161 167 170 160 M188 150 Q179 167 170 160"/><path class="mdetail" d="M139 124 Q132 138 141 152 M201 124 Q208 138 199 152"/><path class="mdetail" d="M170 180 L170 226"/><path class="mdetail" d="M159 189 L181 189 M158 201 L182 201 M158 213 L182 213"/><path class="mdetail" d="M156 182 Q156 206 162 224 M184 182 Q184 206 178 224"/><path class="mdetail" d="M157 300 L155 372 M170 300 L170 374 M183 300 L185 372"/><path class="mdetail" d="M158 392 Q164 397 170 393 Q176 397 182 392"/><path class="mdetail" d="M158 420 L160 470 M182 420 L180 470"/><path class="mdetail" d="M120 150 L124 196 M220 150 L216 196"/>'}
+function backDetail(){return'<path class="mdetail" d="M170 120 L170 292"/><path class="mdetail" d="M148 126 Q170 152 192 126"/><path class="mdetail" d="M150 130 L168 150 M190 130 L172 150"/><path class="mdetail" d="M152 150 Q160 195 168 232 M188 150 Q180 195 172 232"/><path class="mdetail" d="M163 150 L163 252 M177 150 L177 252"/><path class="mdetail" d="M152 282 Q170 300 188 282 M170 276 L170 300"/><path class="mdetail" d="M157 305 L155 376 M170 305 L170 376 M183 305 L185 376"/><path class="mdetail" d="M156 392 Q163 388 170 392 M170 392 Q177 388 184 392"/><path class="mdetail" d="M157 415 Q162 432 159 466 M183 415 Q178 432 181 466"/><path class="mdetail" d="M120 150 L124 196 M220 150 L216 196"/>'}
+
+/* ── Organs ── */
+function organSVG(p){return'<ellipse id="'+p+'lungL" cx="152" cy="150" rx="15" ry="27" fill="#6F9AA0"/><ellipse id="'+p+'lungR" cx="188" cy="150" rx="15" ry="27" fill="#6F9AA0"/><ellipse id="'+p+'liver" cx="151" cy="180" rx="24" ry="17" fill="#4CAF8A"/><ellipse id="'+p+'stomach" cx="187" cy="180" rx="13" ry="11" fill="#B98AA0"/><ellipse id="'+p+'intestine" cx="170" cy="214" rx="27" ry="22" fill="#C7A079"/><ellipse id="'+p+'kidneyL" cx="150" cy="208" rx="8" ry="13" fill="#4EA9B0"/><ellipse id="'+p+'kidneyR" cx="190" cy="208" rx="8" ry="13" fill="#4EA9B0"/><path id="'+p+'vessel" d="M177 158 C 175 182,172 206,171 234" fill="none" stroke="#7A3030" stroke-width="3.4" stroke-linecap="round"/><g id="'+p+'plaques"></g><ellipse id="'+p+'heart" cx="176" cy="152" rx="12" ry="13" fill="#B5616E"/><g id="'+p+'flecks"></g>'}
+
+/* ── Build SVGs ── */
+$('muscleSvg').innerHTML='<defs><linearGradient id="mgrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CB8676"/><stop offset="0.55" stop-color="#B06A5B"/><stop offset="1" stop-color="#8C4F41"/></linearGradient></defs><g id="m_figure">'+skinSVG('m_')+'<g id="m_detail"><g class="d-front">'+frontDetail()+'</g><g class="d-back">'+backDetail()+'</g></g><g id="m_muscles">'+muscleSVG()+'</g></g>';
+$('organSvg').innerHTML='<ellipse id="aura" cx="170" cy="232" rx="118" ry="196" fill="#E2574A" opacity="0"/><ellipse cx="170" cy="510" rx="64" ry="8" fill="rgba(47,224,206,.10)"/><line x1="80" y1="510" x2="260" y2="510" stroke="rgba(120,200,210,.12)" stroke-width="1"/><g id="o_figure"><g id="o_organs">'+organSVG('o_')+'</g>'+skinSVG('o_')+'</g>';
+
+/* ── Render organs (Stage 2) ── */
+function renderOrgans(st){
+  var hbN=norm(st.hb,9,16);$('o_figure').style.filter='saturate('+(0.4+0.6*hbN).toFixed(2)+') brightness('+(0.86+0.14*hbN).toFixed(2)+')';
+  var altN=norm(st.alt,25,110);sa('o_liver','fill',altN<.5?mix('#4CAF8A','#ECA13C',altN*2):mix('#ECA13C','#8A5326',(altN-.5)*2));
+  var bpN=norm(st.sbp,105,165);sa('o_heart','fill',mix('#B5616E','#E2433B',bpN));$('o_heart').style.setProperty('--hd',(1.1-bpN*.45).toFixed(2)+'s');
+  var en=norm(st.egfr,15,95),bad=1-en,kc=bad<.5?mix('#4EA9B0','#ECA13C',bad*2):mix('#ECA13C','#E2574A',(bad-.5)*2);
+  sa('o_kidneyL','fill',kc);sa('o_kidneyR','fill',kc);$('o_kidneyL').setAttribute('opacity',(.45+.5*en).toFixed(2));$('o_kidneyR').setAttribute('opacity',(.45+.5*en).toFixed(2));
+  var ldlN=norm(st.ldl,100,220),pc=Math.round(ldlN*5),ph='',pp=[[176,168],[174,182],[173,196],[172,210],[171,224]];
+  for(var i=0;i<pc;i++)ph+='<circle cx="'+pp[i][0]+'" cy="'+pp[i][1]+'" r="'+(1.6+ldlN*2).toFixed(1)+'" fill="'+mix('#ECA13C','#E2574A',ldlN)+'"/>';
+  $('o_plaques').innerHTML=ph;
+  var gN=norm(st.glucose,100,180),fh='';[[122,250],[218,250],[150,496],[190,496]].forEach(function(q){fh+='<circle cx="'+q[0]+'" cy="'+q[1]+'" r="'+(2+gN*1.6).toFixed(1)+'" fill="#E2574A" opacity="'+gN.toFixed(2)+'"/>';});
+  $('o_flecks').innerHTML=fh;
+  var crpN=norm(st.crp,0,6);$('aura').style.setProperty('--ao',(crpN*.40).toFixed(2));$('aura').setAttribute('opacity',(crpN*.40).toFixed(2));
+}
+
+/* ── Render muscles ── */
+function renderMuscles(map){
+  MUSC.forEach(function(x){
+    var el=$('m_'+x.id),v=map[x.id];
+    el.classList.remove('m-over');
+    if(v==='over'){el.setAttribute('fill','rgba(226,87,74,0.5)');el.classList.add('m-over');}
+    else if(v==='weak')el.setAttribute('fill','rgba(59,139,212,0.42)');
+    else el.setAttribute('fill','transparent');
+  });
+}
+
+/* ── Status helpers ── */
+function bmiStat(b){return b<18.5?{l:'저체중',c:'#ECA13C',s:'mid'}:b<23?{l:'정상',c:'#3FD0AE',s:'low'}:b<25?{l:'과체중',c:'#ECA13C',s:'mid'}:{l:'비만',c:'#E2574A',s:'high'}}
+function bpStat(v){return v<120?{l:'정상',c:'#3FD0AE',s:'low'}:v<140?{l:'주의',c:'#ECA13C',s:'mid'}:{l:'높음',c:'#E2574A',s:'high'}}
+function altStat(v){return v<40?{l:'정상',c:'#3FD0AE',s:'low'}:v<70?{l:'경계',c:'#ECA13C',s:'mid'}:{l:'높음',c:'#E2574A',s:'high'}}
+function ldlStat(v){return v<130?{l:'적정',c:'#3FD0AE',s:'low'}:v<160?{l:'경계',c:'#ECA13C',s:'mid'}:{l:'높음',c:'#E2574A',s:'high'}}
+function gluStat(v){return v<100?{l:'정상',c:'#3FD0AE',s:'low'}:v<126?{l:'전당뇨',c:'#ECA13C',s:'mid'}:{l:'높음',c:'#E2574A',s:'high'}}
+function egfrStat(v){return v>=90?{l:'정상',c:'#3FD0AE',s:'low'}:v>=60?{l:'경도저하',c:'#ECA13C',s:'mid'}:{l:'저하',c:'#E2574A',s:'high'}}
+function crpStat(v){return v<1?{l:'낮음',c:'#3FD0AE',s:'low'}:v<3?{l:'경계',c:'#ECA13C',s:'mid'}:{l:'높음',c:'#E2574A',s:'high'}}
+function hbStat(v){return v>=13?{l:'정상',c:'#3FD0AE',s:'low'}:v>=11?{l:'경도빈혈',c:'#ECA13C',s:'mid'}:{l:'빈혈',c:'#E2574A',s:'high'}}
+
+/* ══ STAGE 3: POSTURE ANALYSIS ══════════════════════════════════════════ */
+
+/* ── Geometry helpers ── */
+function ang2(a,b){return Math.atan2(a.y-b.y,b.x-a.x)*180/Math.PI}
+function ang3(a,b,c){var x1=a.x-b.x,y1=a.y-b.y,x2=c.x-b.x,y2=c.y-b.y,d=x1*x2+y1*y2,m=Math.hypot(x1,y1)*Math.hypot(x2,y2);return Math.acos(clamp(d/(m||1),-1,1))*180/Math.PI}
+function distp(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function stdv(arr){var m=arr.reduce(function(s,v){return s+v},0)/arr.length;return Math.sqrt(arr.reduce(function(s,v){return s+(v-m)*(v-m)},0)/arr.length)}
+
+/* ── Keypoint defaults ── */
+var KPF={nose:{x:150,y:62},earL:{x:137,y:59},earR:{x:163,y:57},shL:{x:110,y:112},shR:{x:190,y:106},hipL:{x:126,y:246},hipR:{x:174,y:250},kneeL:{x:132,y:344},kneeR:{x:168,y:346},ankL:{x:136,y:432},ankR:{x:164,y:432}};
+var KPS={sEar:{x:174,y:72},sSh:{x:156,y:120},sHip:{x:150,y:252},sKnee:{x:150,y:362},sAnk:{x:150,y:432}};
+var SKEL_F=[['earL','earR'],['shL','shR'],['shL','hipL'],['shR','hipR'],['hipL','hipR'],['hipL','kneeL'],['kneeL','ankL'],['hipR','kneeR'],['kneeR','ankR']];
+var SKEL_S=[['sEar','sSh'],['sSh','sHip'],['sHip','sKnee'],['sKnee','sAnk']];
+var LABF={nose:'코',earL:'왼귀',earR:'오른귀',shL:'왼어깨',shR:'오른어깨',hipL:'왼골반',hipR:'오른골반',kneeL:'왼무릎',kneeR:'오른무릎',ankL:'왼발목',ankR:'오른발목'};
+var LABS={sEar:'귀',sSh:'어깨',sHip:'골반',sKnee:'무릎',sAnk:'발목'};
+
+/* ── Editor draw ── */
+function drawEd(cfg){
+  var sk='';
+  cfg.skel.forEach(function(s){var a=cfg.kp[s[0]],b=cfg.kp[s[1]];sk+='<line class="skl" x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'"/>';});
+  if(cfg.spine){
+    var shM=(cfg.kp.shL.x+cfg.kp.shR.x)/2,hpM=(cfg.kp.hipL.x+cfg.kp.hipR.x)/2;
+    sk+='<line class="skl" style="stroke:rgba(47,224,206,.25);stroke-dasharray:3 4" x1="'+cfg.kp.nose.x+'" y1="'+cfg.kp.nose.y+'" x2="'+shM+'" y2="'+cfg.kp.shL.y+'"/>';
+    sk+='<line class="skl" style="stroke:rgba(47,224,206,.25);stroke-dasharray:3 4" x1="'+shM+'" y1="'+cfg.kp.shL.y+'" x2="'+hpM+'" y2="'+cfg.kp.hipL.y+'"/>';
+  }else{
+    var vx=cfg.kp.sAnk.x;sk+='<line class="skl" style="stroke:rgba(120,200,210,.18);stroke-dasharray:3 4" x1="'+vx+'" y1="60" x2="'+vx+'" y2="436"/>';
+  }
+  cfg.svg.querySelector('.skel').innerHTML=sk;
+  var k='';Object.keys(cfg.kp).forEach(function(n){var p=cfg.kp[n];k+='<circle class="kp" data-n="'+n+'" cx="'+p.x+'" cy="'+p.y+'" r="6"><title>'+cfg.lab[n]+'</title></circle>';});
+  cfg.svg.querySelector('.kps').innerHTML=k;
+}
+
+/* ── Drag-to-correct ── */
+function toSvgPt(svg,e){var pt=svg.createSVGPoint(),t=e.touches?e.touches[0]:e;pt.x=t.clientX;pt.y=t.clientY;return pt.matrixTransform(svg.getScreenCTM().inverse())}
+function wireEditor(cfg){
+  cfg.svg.addEventListener('pointerdown',function(e){var c=e.target.closest('.kp');if(!c)return;cfg.drag=c.getAttribute('data-n');e.preventDefault();});
+  cfg.svg.addEventListener('pointermove',function(e){
+    if(!cfg.drag)return;
+    var p=toSvgPt(cfg.svg,e);cfg.kp[cfg.drag]={x:clamp(p.x,2,298),y:clamp(p.y,2,438)};
+    drawEd(cfg);computeAndApplyPosture();e.preventDefault();
+  });
+  window.addEventListener('pointerup',function(){cfg.drag=null;});
+}
+var edF={svg:$('editorF'),kp:KPF,skel:SKEL_F,lab:LABF,spine:true,drag:null,src:null};
+var edS={svg:$('editorS'),kp:KPS,skel:SKEL_S,lab:LABS,spine:false,drag:null,src:null};
+wireEditor(edF);wireEditor(edS);
+
+/* ── Photo load ── */
+function fitRect(w,h){var ea=300/440,ia=w/h,W,H,ox,oy;if(ia>ea){W=300;H=300/ia;ox=0;oy=(440-H)/2;}else{H=440;W=440*ia;oy=0;ox=(300-W)/2;}return{W:W,H:H,ox:ox,oy:oy}}
+function loadPhoto(cfg,file){
+  if(!file||!/^image\//.test(file.type))return;
+  var rd=new FileReader();
+  rd.onload=function(e){
+    cfg.src=e.target.result;
+    cfg.svg.querySelector('.photo').setAttribute('href',e.target.result);
+    cfg.svg.querySelector('.photo').setAttribute('opacity','0.9');
+    cfg.drop.innerHTML='사진 적용됨 · <b>자동 인식</b>을 누르거나 점을 끌어 보정';
+  };
+  rd.readAsDataURL(file);
+}
+
+/* ── MediaPipe tasks-vision (lazy init) ── */
+var _plModel=null,_plLoading=false,_plQueue=[];
+function getPoseLandmarker(cb){
+  if(_plModel){cb(null,_plModel);return;}
+  _plQueue.push(cb);
+  if(_plLoading)return;
+  _plLoading=true;
+  var VISION_URL='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
+  var MODEL_URL='https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
+  var WASM_URL='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
+  import(VISION_URL).then(function(m){
+    return m.FilesetResolver.forVisionTasks(WASM_URL).then(function(vision){
+      return m.PoseLandmarker.createFromOptions(vision,{
+        baseOptions:{modelAssetPath:MODEL_URL,delegate:'GPU'},
+        runningMode:'IMAGE',numPoses:1
+      });
+    });
+  }).then(function(model){
+    _plModel=model;_plLoading=false;
+    _plQueue.forEach(function(f){f(null,model)});_plQueue=[];
+  }).catch(function(err){
+    _plLoading=false;
+    _plQueue.forEach(function(f){f(err)});_plQueue=[];
+  });
+}
+
+/* ── Landmark → keypoint mapping ── */
+function lmPt(lm,i,r){return{x:clamp(r.ox+lm[i].x*r.W,2,298),y:clamp(r.oy+lm[i].y*r.H,2,438)}}
+function lmVis(lm,i){return(lm[i]&&lm[i].visibility!=null)?lm[i].visibility:0.5}
+edF.mapLandmarks=function(lm,r){
+  function P(a,b,kl,kr){var pa=lmPt(lm,a,r),pb=lmPt(lm,b,r);if(pa.x<=pb.x){KPF[kl]=pa;KPF[kr]=pb;}else{KPF[kl]=pb;KPF[kr]=pa;}}
+  KPF.nose=lmPt(lm,0,r);P(7,8,'earL','earR');P(11,12,'shL','shR');P(23,24,'hipL','hipR');P(25,26,'kneeL','kneeR');P(27,28,'ankL','ankR');
+};
+edS.mapLandmarks=function(lm,r){
+  function pick(a,b){return lmVis(lm,a)>=lmVis(lm,b)?a:b}
+  KPS.sEar=lmPt(lm,pick(7,8),r);KPS.sSh=lmPt(lm,pick(11,12),r);KPS.sHip=lmPt(lm,pick(23,24),r);KPS.sKnee=lmPt(lm,pick(25,26),r);KPS.sAnk=lmPt(lm,pick(27,28),r);
+};
+
+/* ── Auto detect ── */
+function autoDetect(cfg){
+  if(!cfg.src){cfg.msg.textContent='먼저 사진을 올려주세요';return;}
+  cfg.btn.disabled=true;
+  cfg.msg.innerHTML='<span class="spin"></span>모델 로딩 중…';
+  getPoseLandmarker(function(err,model){
+    if(err){cfg.msg.textContent='모델 로딩 실패 — 점을 수동으로 맞춰주세요';cfg.btn.disabled=false;return;}
+    cfg.msg.innerHTML='<span class="spin"></span>인식 중…';
+    var img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=function(){
+      try{
+        var r=fitRect(img.naturalWidth,img.naturalHeight);
+        var result=model.detect(img);
+        if(!result.landmarks||!result.landmarks[0]){cfg.msg.textContent='사람 인식 실패 — 전신이 또렷한 사진으로 다시';cfg.btn.disabled=false;return;}
+        cfg.mapLandmarks(result.landmarks[0],r);
+        drawEd(cfg);computeAndApplyPosture();
+        cfg.msg.textContent='자동 인식 완료 · 점을 끌어 미세 조정 가능';
+      }catch(e){cfg.msg.textContent='인식 오류 — 점을 수동으로 맞춰주세요 ('+e.message+')';}
+      cfg.btn.disabled=false;
+    };
+    img.onerror=function(){cfg.msg.textContent='사진 읽기 실패';cfg.btn.disabled=false;};
+    img.src=cfg.src;
+  });
+}
+
+/* ── Wire photo/drop/auto controls ── */
+edF.drop=$('dropF');edF.btn=$('autoF');edF.msg=$('msgF');
+edS.drop=$('dropS');edS.btn=$('autoS');edS.msg=$('msgS');
+$('dropF').addEventListener('click',function(){$('fileF').click()});
+$('fileF').addEventListener('change',function(e){loadPhoto(edF,e.target.files[0])});
+$('dropS').addEventListener('click',function(){$('fileS').click()});
+$('fileS').addEventListener('change',function(e){loadPhoto(edS,e.target.files[0])});
+[['dropF',edF],['dropS',edS]].forEach(function(d){
+  var el=$(d[0]);
+  ['dragover','dragenter'].forEach(function(ev){el.addEventListener(ev,function(e){e.preventDefault();el.classList.add('hot')})});
+  ['dragleave','drop'].forEach(function(ev){el.addEventListener(ev,function(e){e.preventDefault();el.classList.remove('hot')})});
+  el.addEventListener('drop',function(e){loadPhoto(d[1],e.dataTransfer.files[0])});
+});
+$('autoF').addEventListener('click',function(){autoDetect(edF)});
+$('autoS').addEventListener('click',function(){autoDetect(edS)});
+
+/* ── Metrics computation ── */
+function frontMetrics(){
+  var shT=ang2(KPF.shL,KPF.shR),pvT=ang2(KPF.hipL,KPF.hipR),hdT=ang2(KPF.earL,KPF.earR);
+  var shM=(KPF.shL.x+KPF.shR.x)/2,hpM=(KPF.hipL.x+KPF.hipR.x)/2,akM=(KPF.ankL.x+KPF.ankR.x)/2,knM=(KPF.kneeL.x+KPF.kneeR.x)/2;
+  var shift=(shM-akM)/300*100,kneeOff=(knM-hpM)/300*100;
+  var spine=stdv([KPF.nose.x,shM,hpM,knM])/300;
+  var ld=distp(KPF.shL,KPF.hipL),rd=distp(KPF.shR,KPF.hipR),asym=Math.abs(ld-rd)/((ld+rd)/2)*100;
+  return{shT:shT,pvT:pvT,hdT:hdT,shift:shift,kneeOff:kneeOff,spine:spine,asym:asym,scoliosis:spine>0.022};
+}
+function sideMetrics(){
+  var trunk=Math.abs(KPS.sHip.y-KPS.sSh.y)||1;
+  var fhp=Math.abs(KPS.sEar.x-KPS.sSh.x)/trunk*100;
+  var rs=Math.abs(KPS.sSh.x-KPS.sHip.x)/trunk*100;
+  var lean=Math.atan2(KPS.sSh.x-KPS.sHip.x,KPS.sHip.y-KPS.sSh.y)*180/Math.PI;
+  var knee=ang3(KPS.sHip,KPS.sKnee,KPS.sAnk);
+  var plumb=stdv([KPS.sEar.x,KPS.sSh.x,KPS.sHip.x,KPS.sKnee.x,KPS.sAnk.x])/trunk*100;
+  return{fhp:fhp,rs:rs,lean:lean,knee:knee,plumb:plumb};
+}
+
+/* ── Muscle rules (SPEC §4) — thresholds separated for easy tuning ── */
+var THR={shTilt:3,pvTilt:3,hdTilt:3,kneeOff:2,fhp:10,rs:7,lean:6,fhpSevere:14};
+function muscleRules(pf,ps){
+  var map={};MUSC.forEach(function(x){map[x.id]=null});
+  var overIds=[],weakIds=[],overExtra=[],weakExtra=[];
+  function O(id){if(map[id]!==undefined&&overIds.indexOf(id)<0){map[id]='over';overIds.push(id);}}
+  function W(id){if(map[id]!==undefined&&weakIds.indexOf(id)<0){map[id]='weak';weakIds.push(id);}}
+  function OX(s){if(overExtra.indexOf(s)<0)overExtra.push(s);}
+  function WX(s){if(weakExtra.indexOf(s)<0)weakExtra.push(s);}
+
+  /* Shoulder tilt → high side upper trap overload, low side serratus/lower trap weak */
+  if(Math.abs(pf.shT)>THR.shTilt){
+    var hi=pf.shT>0?'R':'L',lo=pf.shT>0?'L':'R';
+    O('trap'+hi);OX((hi==='R'?'우':'좌')+' 견갑거근');
+    W('glute'+lo);WX((lo==='R'?'우':'좌')+' 전거근·하부승모근');
+  }
+  /* Pelvis tilt → high side QL overload, opposite glute med weak */
+  if(Math.abs(pf.pvT)>THR.pvTilt){
+    var hi2=pf.pvT>0?'R':'L',lo2=pf.pvT>0?'L':'R';
+    O('ql'+hi2);W('glute'+lo2);
+  }
+  /* Head tilt → ipsilateral SCM overload */
+  if(Math.abs(pf.hdT)>THR.hdTilt){O('scm'+(pf.hdT>0?'R':'L'));}
+  /* Scoliosis → convex side erector overload */
+  if(pf.scoliosis){var cv=pf.shift>0?'L':'R';O('erector'+cv);WX('반대측 복사근');}
+  /* Knee offset (valgus/varus) → ITB overload, glute med + adductor weak */
+  if(Math.abs(pf.kneeOff)>THR.kneeOff){O('itbL');O('itbR');W('gluteL');W('gluteR');WX('내전근');}
+  /* Forward head → upper trap + SCM overload, deep cervical flexors weak */
+  if(ps.fhp>THR.fhp){O('trapL');O('trapR');O('scmL');O('scmR');WX('심부경추굴곡근');}
+  /* Rounded shoulder → pec overload, rhomboid + mid/lower trap weak */
+  if(ps.rs>THR.rs){O('pecL');O('pecR');W('rhombL');W('rhombR');WX('중하부승모근');}
+  /* Trunk forward lean / severe FHP → lower-crossed: erector + psoas over, abs + glute + ham weak */
+  if(Math.abs(ps.lean)>THR.lean||ps.fhp>THR.fhpSevere){
+    O('erectorL');O('erectorR');O('psoasL');O('psoasR');
+    W('abs');W('gluteL');W('gluteR');W('hamL');W('hamR');
+  }
+  /* Knee hyperextension */
+  if(ps.knee>188){O('quadL');O('quadR');}
+
+  function toNames(ids){var seen={},names=[];ids.forEach(function(id){var n=MNAME[id]||id;if(!seen[n]){seen[n]=1;names.push(n);}});return names;}
+  function uniq(a){var s={},r=[];a.forEach(function(v){if(!s[v]){s[v]=1;r.push(v);}});return r;}
+  return{m:map,over:uniq(toNames(overIds).concat(overExtra)),weak:uniq(toNames(weakIds).concat(weakExtra)),overIds:overIds,weakIds:weakIds};
+}
+
+/* ── Compute & apply posture ── */
+function computeAndApplyPosture(){
+  var pf=frontMetrics(),ps=sideMetrics(),rk=muscleRules(pf,ps);
+  lastPf=pf;lastPs=ps;lastRk=rk;
+  renderMuscles(rk.m);
+  if(window.apply3DResult)window.apply3DResult(rk.overIds,rk.weakIds);
+  renderMetricsF(pf);renderMetricsS(ps);
+  renderReport('reportM',buildMusReport(lastState,pf,ps,rk),'local');
+}
+/* Stage 4 hook: Three.js viewer can call this after glb applyResult */
+window.applyPostureResult=computeAndApplyPosture;
+
+/* ── Metrics renderers ── */
+function metricC(v,th){return Math.abs(v)>th*1.6?'#E2574A':Math.abs(v)>th?'#ECA13C':'#3FD0AE'}
+function renderMetricsF(pf){
+  function sd(v){return v>0?'오른쪽 높음':v<0?'왼쪽 높음':'수평'}
+  var rows=[
+    {k:'어깨 기울기',v:Math.abs(pf.shT).toFixed(1)+'°',d:sd(pf.shT),c:metricC(pf.shT,3)},
+    {k:'골반 기울기',v:Math.abs(pf.pvT).toFixed(1)+'°',d:sd(pf.pvT),c:metricC(pf.pvT,3)},
+    {k:'머리 기울기',v:Math.abs(pf.hdT).toFixed(1)+'°',d:sd(pf.hdT),c:metricC(pf.hdT,3)},
+    {k:'좌우 비대칭',v:pf.asym.toFixed(1)+'%',d:pf.asym>6?'비대칭':'양호',c:metricC(pf.asym,6)},
+    {k:'측방 변위',v:Math.abs(pf.shift).toFixed(1)+'%',d:pf.shift>0?'우측 쏠림':pf.shift<0?'좌측 쏠림':'중앙',c:metricC(pf.shift,4)},
+    {k:'척추 측만',v:pf.scoliosis?'의심':'정상',d:'중심선 편차',c:pf.scoliosis?'#ECA13C':'#3FD0AE'}
+  ];
+  $('metricsF').innerHTML=rows.map(function(x){return'<div class="metric"><div class="k">'+x.k+'</div><div class="v" style="color:'+x.c+'">'+x.v+'</div><div class="d">'+x.d+'</div></div>'}).join('');
+}
+function renderMetricsS(ps){
+  function st(v,a,b){return v<a?{l:'정상',c:'#3FD0AE'}:v<b?{l:'주의',c:'#ECA13C'}:{l:'심함',c:'#E2574A'}}
+  var f=st(ps.fhp,10,18),r2=st(ps.rs,7,14);
+  var kf=ps.knee>188?{l:'반장슬',c:'#ECA13C'}:ps.knee<165?{l:'굴곡',c:'#ECA13C'}:{l:'정상',c:'#3FD0AE'};
+  var ln=Math.abs(ps.lean)>6?{l:'전방 기울임',c:'#ECA13C'}:{l:'양호',c:'#3FD0AE'};
+  var rows=[
+    {k:'전방 머리(거북목)',v:ps.fhp.toFixed(0)+'%',d:f.l,c:f.c},
+    {k:'라운드숄더',v:ps.rs.toFixed(0)+'%',d:r2.l,c:r2.c},
+    {k:'체간 기울기',v:Math.abs(ps.lean).toFixed(1)+'°',d:ln.l,c:ln.c},
+    {k:'무릎 각도',v:ps.knee.toFixed(0)+'°',d:kf.l,c:kf.c},
+    {k:'정렬 편차',v:ps.plumb.toFixed(0)+'%',d:ps.plumb>12?'정렬 흐트러짐':'양호',c:ps.plumb>18?'#E2574A':ps.plumb>12?'#ECA13C':'#3FD0AE'}
+  ];
+  $('metricsS').innerHTML=rows.map(function(x){return'<div class="metric"><div class="k">'+x.k+'</div><div class="v" style="color:'+x.c+'">'+x.v+'</div><div class="d">'+x.d+'</div></div>'}).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Reports ── */
+function buildMusReport(st,pf,ps,rk){
+  var bmi=st.weight/Math.pow(st.height/100,2),bmiS=bmiStat(bmi);
+  var abdObesity=(st.sex==='M'&&st.waist>=90)||(st.sex==='F'&&st.waist>=85);
+  var hasPose=pf!==null;
+  var summary=hasPose?(rk.over.length?'자세에서 '+rk.over.length+'개 부위에 과부하가 잡혀요. 단축된 근육은 풀고 약화된 근육을 강화하세요.':'정면·측면 기준 정렬은 비교적 양호해요.'):'체형 기반 체성분 분석입니다. 사진을 올리면 자세·근육 분석이 추가돼요.';
+  var bodyShape='BMI '+bmi.toFixed(1)+'('+bmiS.l+') · 체지방 '+st.bodyfat+'% · 골격근 '+st.muscle+'kg · 허리 '+st.waist+'cm. '+(abdObesity?'복부 비만 경향이 있어 자세 부담과 대사 위험을 함께 살펴야 해요.':'허리 둘레는 기준 이내예요.');
+  var postureAnalysis=null,overloadMuscles=null,weakMuscles=null;
+  if(hasPose){
+    function sd(v){return v>0?'오른쪽':'왼쪽'}
+    var fp=[];if(Math.abs(pf.shT)>2)fp.push('어깨 '+sd(pf.shT)+' '+Math.abs(pf.shT).toFixed(1)+'° 높음');if(Math.abs(pf.pvT)>2)fp.push('골반 '+sd(pf.pvT)+' '+Math.abs(pf.pvT).toFixed(1)+'° 높음');if(pf.scoliosis)fp.push('척추 측만 의심');
+    var sp=[];if(ps.fhp>10)sp.push('전방 머리 '+ps.fhp.toFixed(0)+'%');if(ps.rs>7)sp.push('라운드숄더 '+ps.rs.toFixed(0)+'%');if(Math.abs(ps.lean)>6)sp.push('체간 기울임 '+Math.abs(ps.lean).toFixed(1)+'°');
+    postureAnalysis='정면: '+(fp.length?fp.join(', '):'균형 양호')+'. 측면: '+(sp.length?sp.join(', '):'양호')+'.';
+    overloadMuscles=rk.over;weakMuscles=rk.weak;
+  }
+  var actions=[];
+  if(hasPose&&rk.over.length)actions.push('과부하 근육 스트레칭: '+rk.over.slice(0,2).join(', '));
+  if(hasPose&&rk.weak.length)actions.push('약화 근육 강화 운동: '+rk.weak.slice(0,2).join(', '));
+  if(hasPose&&(ps.fhp>10||ps.rs>7))actions.push('모니터 높이 조정 + 1시간마다 가슴 펴기·턱 당기기');
+  if(abdObesity)actions.push('유산소 주 150분 + 식이 조절로 복부 지방 감량');
+  if(!actions.length)actions.push('현 정렬·체성분 유지 — 좌우 균형 운동을 이어가세요');
+  return{summary:summary,bodyShape:bodyShape,postureAnalysis:postureAnalysis,overloadMuscles:overloadMuscles,weakMuscles:weakMuscles,top3Actions:actions.slice(0,3)};
+}
+function buildIntReport(st){
+  var defs=[['간 ALT',st.alt,altStat(st.alt),'간세포 효소 — 높으면 지방간·간손상 의심'],['LDL',st.ldl,ldlStat(st.ldl),'나쁜 콜레스테롤 — 혈관 플라크 위험'],['혈압',st.sbp,bpStat(st.sbp),'수축기 혈압 — 심혈관 부담'],['공복혈당',st.glucose,gluStat(st.glucose),'당대사 — 전당뇨/당뇨 경계'],['eGFR',st.egfr,egfrStat(st.egfr),'신장 여과 기능'],['CRP',st.crp,crpStat(st.crp),'전신 염증 수치'],['헤모글로빈',st.hb,hbStat(st.hb),'산소 운반 — 낮으면 빈혈']];
+  var flags=defs.filter(function(d){return d[2].s!=='low'}).map(function(d){return{item:d[0],value:d[1],reason:d[3],severity:d[2].s,c:d[2].c}});
+  flags.sort(function(a,b){return({high:0,mid:1})[a.severity]-({high:0,mid:1})[b.severity]});
+  var hi=flags.filter(function(f){return f.severity==='high'}).length;
+  var summary=hi?'관리 필요 지표 '+flags.length+'개 중 '+hi+'개는 적극 관리 권장이에요.':flags.length?'경계 지표 '+flags.length+'개를 지켜보면 좋아요.':'검진 수치는 대체로 정상 범위예요.';
+  var note='';if(altStat(st.alt).s!=='low')note+='간 효소가 높아 지방간 가능성을 살펴봐야 하고, ';if(ldlStat(st.ldl).s!=='low'||gluStat(st.glucose).s!=='low')note+='지질·혈당이 함께 경계라 대사증후군을 주의하면 좋아요, ';if(bpStat(st.sbp).s!=='low')note+='혈압도 부담 구간입니다, ';note=(note||'대사·장기 지표는 큰 이상 신호는 적어요, ').replace(/,\s*$/,'.');
+  var actions=[];if(ldlStat(st.ldl).s!=='low'||gluStat(st.glucose).s!=='low')actions.push('정제 탄수화물·포화지방 줄이고 유산소 주 3회');if(altStat(st.alt).s!=='low')actions.push('음주 절제 + 체중 5% 감량 시 지방간 개선 기대');if(bpStat(st.sbp).s!=='low')actions.push('나트륨 줄이고 활동량 늘려 혈압 관리');if(crpStat(st.crp).s!=='low')actions.push('염증 원인 점검·수면 관리');if(!actions.length)actions.push('정기 검진 유지');
+  return{summary:summary,riskFlags:flags,metabolic:note,top3Actions:actions.slice(0,3)};
+}
+
+function renderReport(elId,r,source){
+  var h='<div style="text-align:right;margin-bottom:8px"><span class="src-tag'+(source==='ai'?' src-ai':'')+'">'+(source==='ai'?'AI 분석':'기본 규칙')+'</span></div>';
+  h+='<div class="summary">'+r.summary+'</div>';
+  if(r.riskFlags&&r.riskFlags.length){h+='<div class="blk"><div class="blk-t">위험 신호</div>';r.riskFlags.forEach(function(f){h+='<div class="flag"><span class="dot" style="color:'+f.c+';background:'+f.c+'"></span><span class="ft"><div class="fi">'+f.item+' · '+f.value+'</div><div class="fr">'+f.reason+'</div></span></div>';});h+='</div>';}
+  if(r.bodyShape)h+='<div class="blk"><div class="blk-t">체형</div><p>'+r.bodyShape+'</p></div>';
+  if(r.postureAnalysis)h+='<div class="blk"><div class="blk-t">자세</div><p style="font-size:12.5px;line-height:1.55;color:var(--txt2)">'+r.postureAnalysis+'</p></div>';
+  if(r.metabolic)h+='<div class="blk"><div class="blk-t">대사·장기</div><p>'+r.metabolic+'</p></div>';
+  if((r.overloadMuscles&&r.overloadMuscles.length)||(r.weakMuscles&&r.weakMuscles.length)){
+    h+='<div class="blk"><div class="blk-t">근육 부하</div>';
+    if(r.overloadMuscles&&r.overloadMuscles.length)h+='<div style="font-size:11px;color:var(--txt3);margin-bottom:3px">과부하 (빨강)</div><div class="mtags">'+r.overloadMuscles.map(function(m){return'<span class="tag over">'+m+'</span>'}).join('')+'</div>';
+    if(r.weakMuscles&&r.weakMuscles.length)h+='<div style="font-size:11px;color:var(--txt3);margin:7px 0 3px">약화 (파랑)</div><div class="mtags">'+r.weakMuscles.map(function(m){return'<span class="tag weak">'+m+'</span>'}).join('')+'</div>';
+    h+='</div>';
+  }
+  if(r.top3Actions&&r.top3Actions.length)h+='<div class="blk"><div class="blk-t">개선 우선순위</div><ol class="acts">'+r.top3Actions.map(function(a){return'<li>'+a+'</li>'}).join('')+'</ol></div>';
+  $(elId).innerHTML=h;
+}
+
+/* ── Chips ── */
+function renderChipsM(st){
+  var bmi=st.weight/Math.pow(st.height/100,2),musR=st.muscle/st.weight*100;
+  var c=[['BMI',bmi.toFixed(1),bmiStat(bmi)],['허리',st.waist+'cm',{l:(st.sex==='M'?st.waist>=90:st.waist>=85)?'복부비만':'정상',c:(st.sex==='M'?st.waist>=90:st.waist>=85)?'#E2574A':'#3FD0AE'}],['체지방',st.bodyfat+'%',{l:st.bodyfat>=(st.sex==='M'?25:33)?'높음':'적정',c:st.bodyfat>=(st.sex==='M'?25:33)?'#ECA13C':'#3FD0AE'}],['근육률',musR.toFixed(0)+'%',{l:musR>=(st.sex==='M'?32:25)?'양호':'부족',c:musR>=(st.sex==='M'?32:25)?'#3FD0AE':'#ECA13C'}]];
+  $('chipsM').innerHTML=c.map(function(x){return'<div class="chip"><span class="k">'+x[0]+'</span><span class="v">'+x[1]+'</span><span class="s" style="color:'+x[2].c+'">'+x[2].l+'</span></div>'}).join('');
+}
+function renderChipsI(st){
+  var c=[['혈압',st.sbp,bpStat(st.sbp)],['간',st.alt,altStat(st.alt)],['LDL',st.ldl,ldlStat(st.ldl)],['신장',st.egfr,egfrStat(st.egfr)],['Hb',st.hb,hbStat(st.hb)]];
+  $('chipsI').innerHTML=c.map(function(x){return'<div class="chip"><span class="k">'+x[0]+'</span><span class="v">'+x[1]+'</span><span class="s" style="color:'+x[2].c+'">'+x[2].l+'</span></div>'}).join('');
+}
+
+/* ── AI enhance (Stage 5: replace /api/analyze with real backend proxy) ── */
+function aiEnhance(prompt,elId,btn,noticeId){
+  btn.disabled=true;var old=btn.textContent;btn.innerHTML='<span class="spin"></span>분석 중';$(noticeId).style.display='none';
+  fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt})})
+  .then(function(r){return r.json()}).then(function(d){renderReport(elId,d,'ai');})
+  .catch(function(){$(noticeId).textContent='AI 분석 불가 (백엔드 프록시 미구성 — Stage 5에서 활성화됩니다). 기본 규칙 분석 중입니다.';$(noticeId).style.display='block';})
+  .then(function(){btn.disabled=false;btn.textContent=old;});
+}
+$('aiBtnM').addEventListener('click',function(){
+  var st=lastState,pf=lastPf,ps=lastPs,rk=lastRk;
+  var p='아래 데이터로 근골격 상태를 한국어로 분석해줘. 의료 진단 아닌 참고용. 설명 없이 JSON만: {"summary":"한줄","bodyShape":"2-3문장","postureAnalysis":"자세 3-4문장","overloadMuscles":["근육"],"weakMuscles":["근육"],"top3Actions":["1","2","3"]}\n\n키 '+st.height+'cm 몸무게 '+st.weight+'kg '+(st.sex==='M'?'남':'여')+' '+st.age+'세 체지방 '+st.bodyfat+'% 골격근 '+st.muscle+'kg 허리 '+st.waist+'cm';
+  if(pf){p+='\n정면: 어깨기울기 '+pf.shT.toFixed(1)+'° 골반 '+pf.pvT.toFixed(1)+'° 머리 '+pf.hdT.toFixed(1)+'° 측만 '+(pf.scoliosis?'의심':'정상');p+='\n측면: 전방머리 '+ps.fhp.toFixed(0)+'% 라운드숄더 '+ps.rs.toFixed(0)+'% 체간기울기 '+ps.lean.toFixed(1)+'°';p+='\n추정 과부하: '+(rk.over.join(', ')||'없음')+' / 약화: '+(rk.weak.join(', ')||'없음');}
+  aiEnhance(p,'reportM',this,'noticeM');
+});
+$('aiBtnI').addEventListener('click',function(){
+  var st=lastState;
+  var p='아래 검진 수치로 내과/대사 상태를 한국어로 분석해줘. 의료 진단 아닌 참고용. 설명 없이 JSON만: {"summary":"한줄","riskFlags":[{"item":"항목","value":"수치","reason":"이유","severity":"high|mid|low"}],"metabolic":"3-4문장","top3Actions":["1","2","3"]}\n\nALT '+st.alt+' LDL '+st.ldl+' 수축기혈압 '+st.sbp+' 공복혈당 '+st.glucose+' eGFR '+st.egfr+' CRP '+st.crp+' Hb '+st.hb;
+  aiEnhance(p,'reportI',this,'noticeI');
+});
+
+/* ── Main refresh ── */
+function refresh(){
+  var st=S();lastState=st;
+  var s=shape(st);
+  allIds.forEach(function(id){var el=$(id);if(!el)return;var mn=+el.min,mx=+el.max,vv=+el.value;el.style.setProperty('--p',((vv-mn)/(mx-mn)*100)+'%');var dv=$('v_'+id);if(dv)dv.textContent=vv%1?vv.toFixed(1):vv;});
+  applyBody('m_',s);applyBody('o_',s);
+  /* muscles: use last posture result if available, else neutral */
+  if(lastRk){renderMuscles(lastRk.m);}else{var neutral={};MUSC.forEach(function(x){neutral[x.id]=null});renderMuscles(neutral);}
+  renderOrgans(st);
+  renderChipsM(st);renderChipsI(st);
+  renderReport('reportM',buildMusReport(st,lastPf,lastPs,lastRk),'local');
+  renderReport('reportI',buildIntReport(st),'local');
+  saveState();
+}
+
+/* ── Event listeners ── */
+allIds.forEach(function(id){var el=$(id);if(el)el.addEventListener('input',refresh)});
+$('sexSeg').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;SEX=b.dataset.s;[].forEach.call(this.children,function(x){x.classList.toggle('on',x===b)});refresh();});
+$('modebar').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;$('app').className='app '+b.dataset.m;[].forEach.call(this.children,function(x){x.classList.toggle('on',x===b)});});
+$('planeSeg').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;$('muscleSvg').setAttribute('class','bodysvg '+b.dataset.p);[].forEach.call(this.children,function(x){x.classList.toggle('on',x===b)});});
+$('viewSeg').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;$('organSvg').setAttribute('class','bodysvg '+b.dataset.v);[].forEach.call(this.children,function(x){x.classList.toggle('on',x===b)});});
+
+/* ── Init ── */
+drawEd(edF);drawEd(edS);
+refresh();
+
+/* ══ STAGE 4: THREE.JS 3D MUSCLE MAP ════════════════════════════════════ */
+(function(){
+  if(typeof THREE==='undefined'){
+    var n=$('notice3d');if(n){n.style.display='block';n.textContent='Three.js를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.';}
+    return;
+  }
+  var cv=$('view3d');if(!cv)return;
+
+  /* auto-load paths — edit here to swap default models */
+  var GLB_MUSCLES='./muscles.glb';
+  var GLB_ORGANS='./manorgan.glb'; // reserved for internal-tab 3D viewer
+
+  /* scene */
+  var sc3=new THREE.Scene();sc3.background=new THREE.Color(0x0a0f15);
+  var cm3=new THREE.PerspectiveCamera(45,1,0.01,5000);cm3.position.set(0,1.4,3);
+  var rn3=new THREE.WebGLRenderer({canvas:cv,antialias:true});
+  rn3.setPixelRatio(Math.min(devicePixelRatio,2));
+  var ct3=new THREE.OrbitControls(cm3,rn3.domElement);
+  ct3.enableDamping=true;ct3.dampingFactor=0.08;
+  sc3.add(new THREE.HemisphereLight(0xffffff,0x223040,0.9));
+  var kl=new THREE.DirectionalLight(0xffffff,0.9);kl.position.set(2,4,3);sc3.add(kl);
+  var fl=new THREE.DirectionalLight(0xbfe3e0,0.4);fl.position.set(-3,1,-2);sc3.add(fl);
+
+  function sz3(){var r=cv.getBoundingClientRect();if(!r.width||!r.height)return;rn3.setSize(r.width,r.height,false);cm3.aspect=r.width/Math.max(r.height,1);cm3.updateProjectionMatrix();}
+  window.addEventListener('resize',sz3);sz3();
+  (function lp(){requestAnimationFrame(lp);ct3.update();rn3.render(sc3,cm3);})();
+
+  /* opacity levels for the semi-transparent base layer */
+  var OP_NORMAL=0.30,OP_XRAY=0.08;
+  /* MAT_BASE: transparent + no depth write so colored muscles behind always show through */
+  var MAT_BASE=new THREE.MeshStandardMaterial({color:0xC09070,emissive:0x1A0800,emissiveIntensity:0.08,roughness:0.82,metalness:0.0,transparent:true,opacity:OP_NORMAL,depthWrite:false});
+  /* colored materials: fully opaque, render in opaque pass before transparent normal muscles */
+  var MOV=new THREE.MeshStandardMaterial({color:0xE8372A,emissive:0xCC1000,emissiveIntensity:0.88,roughness:0.48,metalness:0.0,transparent:false});
+  var MWK=new THREE.MeshStandardMaterial({color:0x2B7FD4,emissive:0x06203A,emissiveIntensity:0.42,roughness:0.62,metalness:0.0,transparent:false});
+
+  /* model state */
+  var rt3=null,its=[];
+  var ld3=new THREE.GLTFLoader();
+
+  function fit3(o){
+    var bx=new THREE.Box3().setFromObject(o),ctr=bx.getCenter(new THREE.Vector3()),sz=bx.getSize(new THREE.Vector3());
+    var md=Math.max(sz.x,sz.y,sz.z)||1;o.position.sub(ctr);
+    /* fill ~85% of viewport: factor 0.95 (was 1.6) so model appears large */
+    var fovRad=cm3.fov*Math.PI/360;
+    var canvas=sc3.getObjectByName?cm3:cm3; // just use cam aspect
+    var aspect=cm3.aspect||1;
+    /* fit both height and width */
+    var dH=sz.y*0.5/Math.tan(fovRad);
+    var dW=sz.x*0.5/(Math.tan(fovRad)*aspect);
+    var d=Math.max(dH,dW)*1.05;
+    cm3.position.set(0,0,d);cm3.near=md/200;cm3.far=md*200;cm3.updateProjectionMatrix();
+    ct3.target.set(0,0,0);ct3.update();
+  }
+  function clrMdl(){if(rt3)sc3.remove(rt3);rt3=null;its=[];}
+
+  /* Z-Anatomy naming convention:
+     - Words joined by underscores: External_abdominal_oblique_musclel
+     - Side: last char of name is bare 'l' (left) or 'r' (right), no separator
+     - Normalize for matching: lowercase + underscores → spaces */
+  function norm3(name){return name.toLowerCase().replace(/_/g,' ');}
+  function sdOf(name){
+    var last=name.slice(-1).toLowerCase();
+    if(last==='l')return 'L';
+    if(last==='r')return 'R';
+    return null; // no side marker → applies to both
+  }
+  /* Skip non-muscle structural meshes */
+  var EXCL=/how_to_|^ligament|ligament$| ligament|_ligament|tendon|nerve|artery|vein|aponeurosis/i;
+  /* key → Z-Anatomy latin name substrings (matched on normalized name) */
+  var B3={
+    trap:['trapezius'],
+    scm:['sternocleidomastoid','sternocleido'],
+    pec:['pectoralis'],
+    abs:['rectus abdominis','external abdominal oblique','internal abdominal oblique',
+         'obliquus externus','obliquus internus','transversus abdominis'],
+    psoas:['psoas','iliacus'],
+    quad:['vastus','rectus femoris','quadriceps femoris'],
+    itb:['iliotibial','tensor fasciae','fasciae latae'],
+    rhomb:['rhomboid'],
+    erector:['erector spinae','spinalis','longissimus','iliocostalis'],
+    ql:['quadratus lumborum'],
+    glute:['gluteus'],
+    ham:['biceps femoris','semitendinosus','semimembranosus']
+  };
+  function match(key){
+    var base=key.replace(/[LR]$/,''),side=/[LR]$/.test(key)?key.slice(-1):null;
+    var subs=B3[base]||[base.toLowerCase()];
+    return its.filter(function(it){
+      if(EXCL.test(it.name))return false;
+      var nm=norm3(it.name);
+      var h=subs.some(function(s){
+        // require term to start at word boundary (^or space) to avoid partial-word matches
+        return new RegExp('(?:^|\\s)'+s.replace(/\s+/g,'\\s+'),'i').test(nm);
+      });
+      if(!h)return false;
+      if(side){var sd=sdOf(it.name);return sd===null||sd===side;}
+      return true;
+    });
+  }
+
+  /* state helpers */
+  function sst(it,st){
+    it.mesh.userData.state=st;
+    it.mesh.material=st===1?MOV:st===2?MWK:MAT_BASE;
+    it.mesh.renderOrder=st===1?2:st===2?1:0; // red renders last → always on top of blue/flesh
+  }
+  function clrAll(){its.forEach(function(it){sst(it,0)});rl($('search3d').value);}
+
+  /* xray toggle: lower base opacity so colored deep muscles show clearly */
+  var xrayOn=false;
+  function setXray(on){
+    xrayOn=on;
+    MAT_BASE.opacity=on?OP_XRAY:OP_NORMAL;
+    var btn=$('xray3d');
+    if(btn){btn.textContent=on?'반투명 복원':'겉 근육 숨기기';btn.style.color=on?'var(--teal)':'';btn.style.borderColor=on?'var(--teal)':'';}
+  }
+
+  /* apply posture result → color meshes */
+  function apply3DResult(ov,wk){
+    if(!its.length)return;
+    clrAll();
+    (wk||[]).forEach(function(k){match(k).forEach(function(it){sst(it,2)});});
+    (ov||[]).forEach(function(k){match(k).forEach(function(it){sst(it,1)});});
+    rl($('search3d').value);
+  }
+  window.apply3DResult=apply3DResult;
+
+  /* mesh list render */
+  function rl(q){
+    q=(q||'').toLowerCase();
+    var rows=its.filter(function(it){return !q||it.lname.indexOf(q)>=0});
+    $('count3d').textContent=its.length?(rows.length+'/'+its.length+'개 메쉬 · 클릭하면 색 순환(없음→빨강→파랑)'):'';
+    $('mlist3d').innerHTML=rows.map(function(it){
+      var i=its.indexOf(it),cls=it.mesh.userData.state===1?' over':it.mesh.userData.state===2?' weak':'';
+      return'<div class="mrow3d'+cls+'" data-i="'+i+'"><span class="d3d"></span><span title="'+it.name+'" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">'+it.name+'</span></div>';
+    }).join('');
+  }
+  $('mlist3d').addEventListener('click',function(e){var r=e.target.closest('[data-i]');if(!r)return;var it=its[+r.dataset.i];sst(it,(it.mesh.userData.state+1)%3);rl($('search3d').value);});
+  $('search3d').addEventListener('input',function(){rl(this.value);});
+
+  /* load GLB */
+  /* shared GLB loader — used by both auto-load and manual file pick */
+  function loadGLB(url,isAuto){
+    $('notice3d').style.display='none';clrMdl();
+    ld3.load(url,function(gltf){
+      rt3=gltf.scene;sc3.add(rt3);
+      rt3.traverse(function(o){
+        if(!o.isMesh)return;
+        if(/HOW_TO/i.test(o.name)){o.visible=false;return;}
+        o.material=MAT_BASE;o.userData.state=0; // apply flesh tone immediately on load
+        its.push({mesh:o,name:o.name||'(이름없음)',lname:(o.name||'').toLowerCase()});
+      });
+      fit3(rt3);sz3();
+      $('empty3d').style.display='none';$('meshListPanel').style.display='block';
+      $('reset3dView').style.display='';$('sample3d').style.display='';$('clear3d').style.display='';$('xray3d').style.display='';
+      if(isAuto)$('load3dBtn').textContent='📂 다른 모델로 교체';
+      rl('');
+      if(lastRk&&lastRk.overIds)apply3DResult(lastRk.overIds,lastRk.weakIds);
+    },undefined,function(){
+      if(!isAuto){
+        $('notice3d').style.display='block';
+        $('notice3d').textContent='모델을 불러오지 못했어요. .glb 단일 파일인지, Draco 압축이 꺼져 있는지 확인해 주세요.';
+      }
+      /* auto-load failure: silently show manual upload state */
+    });
+  }
+
+  $('load3dBtn').addEventListener('click',function(){$('file3d').click();});
+  $('file3d').addEventListener('change',function(e){
+    var f=e.target.files[0];if(!f)return;
+    $('load3dBtn').textContent='📂 다른 모델로 교체';
+    loadGLB(URL.createObjectURL(f),false);
+  });
+  $('reset3dView').addEventListener('click',function(){if(rt3)fit3(rt3);});
+  $('xray3d').addEventListener('click',function(){setXray(!xrayOn);});
+  $('sample3d').addEventListener('click',function(){
+    if(!its.length){$('notice3d').style.display='block';$('notice3d').textContent='먼저 모델(.glb)을 불러오세요.';return;}
+    $('notice3d').style.display='none';
+    apply3DResult(
+      ['trapL','trapR','qlL','qlR','pecL','pecR','erectorL','erectorR','scmL','scmR'],
+      ['rhombL','rhombR','gluteL','gluteR','hamL','hamR']
+    );
+  });
+  $('clear3d').addEventListener('click',clrAll);
+
+  /* auto-load default muscle model on startup */
+  loadGLB(GLB_MUSCLES,true);
+})();
+})();
+</script>
+</body>
+</html>
