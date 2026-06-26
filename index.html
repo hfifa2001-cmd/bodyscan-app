@@ -167,16 +167,61 @@
   .pose-split{display:flex;gap:10px;align-items:flex-start}
   .pose-split>div{flex:1 1 0;min-width:0}
   .pose-split-lbl{font:600 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:6px;padding:2px 0}
-  @media(max-width:920px){
-    .app{grid-template-columns:1fr;grid-template-rows:auto;align-items:start}
+  /* collapsible mesh list toggle (hidden on desktop, shown on mobile) */
+  .mob-summary{display:none;align-items:center;justify-content:space-between;padding:10px 2px;font:500 12px/1.3 var(--sans);color:var(--txt2);cursor:pointer;list-style:none;border-top:1px solid var(--line);margin-top:4px;-webkit-user-select:none;user-select:none}
+  .mob-summary::-webkit-details-marker{display:none}
+
+  /* ── desktop: hide mob elements, make <details> transparent ── */
+  @media(min-width:769px){
+    details.mob-details{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+  }
+
+  /* ── tablet 769–960px: narrow columns ── */
+  @media(max-width:960px) and (min-width:769px){
+    .app{grid-template-columns:200px 1fr minmax(200px,260px)}
+    .panel3d-sidebar{width:200px}
+    .app-posture .guide{flex:0 0 70px}
+  }
+
+  /* ── mobile ≤768px ── */
+  @media(max-width:768px){
+    body{overflow-x:hidden}
+    .wrap{padding:12px 12px 48px}
+    h1{font-size:18px}
+    .sub{font-size:12px}
+    /* single column grid */
+    .app{grid-template-columns:1fr;grid-template-rows:auto;align-items:start;gap:10px}
     .app-sidebar,.app-posture,.app-report,.app-organ{grid-column:1;grid-row:auto;height:auto;max-height:none}
     #panel3d{grid-column:1;grid-row:auto}
+    /* touch-friendly buttons (min 44px) */
+    .ai-btn{padding:10px 14px;font-size:12.5px;min-height:44px}
+    .modebar button{padding:10px 14px;min-height:44px;font-size:13px}
+    .seg button{padding:9px 12px;min-height:40px;font-size:12px}
+    /* larger sliders */
+    input[type=range]{height:5px}
+    input[type=range]::-webkit-slider-thumb{width:22px;height:22px}
+    input[type=range]::-moz-range-thumb{width:20px;height:20px}
+    .row{margin-bottom:14px}
+    .row-top label{font-size:13px}
+    /* posture: vertical stack */
     .pose-split{flex-direction:column}
-    .editor{max-height:38vh;flex:1 1 220px;min-width:190px}
     .app-posture .guide{flex:0 0 130px}
     .app-posture .gcap{font-size:10.5px}
-    .panel3d-body{flex-direction:column}
+    .editor{max-height:42vh;flex:1 1 220px;min-width:190px}
+    /* 3D panel: canvas on top, list below (column-reverse so canvas shows first) */
+    .panel3d-body{flex-direction:column-reverse;gap:10px}
     .panel3d-sidebar{width:100%;max-height:none}
+    #view3d{height:50vh !important;min-height:220px !important}
+    /* collapsible mesh list */
+    .mob-summary{display:flex}
+    details.mob-details{border:0;padding:0;margin:0}
+    /* misc */
+    .panel{padding:10px}
+    .stage-top{margin-bottom:6px}
+    .drop{padding:14px 10px;font-size:13px;min-height:44px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap}
+    .metrics{grid-template-columns:1fr}
+    .auto-row{gap:6px}
+    .stage-top .lab{font-size:10px}
   }
 </style>
 </head>
@@ -316,13 +361,16 @@
               <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--blue)"></i>약화 (이완)</span>
               <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:rgba(120,200,210,.3)"></i>정상</span>
             </div>
-            <div id="notice3d" style="display:none;font-size:11.5px;color:var(--amber)"></div>
-            <div id="meshListPanel" style="display:none">
-              <div style="font:500 10.5px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--txt3);margin:0 0 8px;display:flex;align-items:center;gap:7px">감지된 근육 메쉬<span style="flex:1;height:1px;background:var(--line);display:inline-block"></span></div>
-              <input id="search3d" placeholder="근육 이름 검색 (예: trapezius)" style="width:100%;background:rgba(120,200,210,.06);border:1px solid var(--line);border-radius:8px;color:var(--txt);font:400 12.5px var(--sans);padding:8px 10px;margin-bottom:8px;box-sizing:border-box;outline:none">
-              <div id="count3d" style="font:500 11px var(--mono);color:var(--txt3);margin-bottom:7px"></div>
-              <div id="mlist3d" style="overflow-y:auto;margin:0 -2px;padding:0 2px"></div>
-            </div>
+            <details class="mob-details" open>
+              <summary class="mob-summary">근육 목록 ▾</summary>
+              <div id="notice3d" style="display:none;font-size:11.5px;color:var(--amber)"></div>
+              <div id="meshListPanel" style="display:none">
+                <div style="font:500 10.5px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--txt3);margin:0 0 8px;display:flex;align-items:center;gap:7px">감지된 근육 메쉬<span style="flex:1;height:1px;background:var(--line);display:inline-block"></span></div>
+                <input id="search3d" placeholder="근육 이름 검색 (예: trapezius)" style="width:100%;background:rgba(120,200,210,.06);border:1px solid var(--line);border-radius:8px;color:var(--txt);font:400 12.5px var(--sans);padding:8px 10px;margin-bottom:8px;box-sizing:border-box;outline:none">
+                <div id="count3d" style="font:500 11px var(--mono);color:var(--txt3);margin-bottom:7px"></div>
+                <div id="mlist3d" style="overflow-y:auto;margin:0 -2px;padding:0 2px"></div>
+              </div>
+            </details>
           </div>
           <!-- right: 3D canvas -->
           <div class="panel3d-canvas">
