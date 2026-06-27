@@ -1006,7 +1006,7 @@ function applyAIVals(data){
 function doOCR(file){
   var stEl=$('ocrStatus'),smEl=$('ocrSummary'),rawEl=$('ocrRaw'),rawT=$('ocrRawText');
   smEl.style.display='none';rawEl.style.display='none';
-  stEl.style.display='';stEl.innerHTML='<span class="spin"></span>AI 분석 중…';
+  stEl.style.display='';stEl.innerHTML='<span class="spin"></span>분석 중…';
 
   var reader=new FileReader();
   reader.onerror=function(){stEl.textContent='⚠ 이미지를 읽지 못했어요.';};

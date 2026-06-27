@@ -21,7 +21,7 @@ export default async function handler(req, res) {
   let geminiRes;
   try {
     geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-latest:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -36,23 +36,32 @@ export default async function handler(req, res) {
       }
     );
   } catch (e) {
-    return res.status(502).json({ error: 'Gemini API 연결 실패', detail: e.message });
+    console.error('[OCR] Gemini 네트워크 오류:', e);
+    return res.status(502).json({ error: true, message: e.message, status: 502 });
   }
 
   if (!geminiRes.ok) {
     const errText = await geminiRes.text();
-    return res.status(502).json({ error: 'Gemini API 오류 (HTTP ' + geminiRes.status + ')', detail: errText });
+    console.error('[OCR] Gemini HTTP 오류', geminiRes.status, errText);
+    return res.status(502).json({ error: true, message: 'Gemini API HTTP ' + geminiRes.status, status: geminiRes.status, detail: errText });
   }
 
-  const geminiData = await geminiRes.json();
+  let geminiData;
+  try {
+    geminiData = await geminiRes.json();
+  } catch (e) {
+    console.error('[OCR] Gemini 응답 JSON 파싱 실패:', e);
+    return res.status(502).json({ error: true, message: '응답 파싱 실패: ' + e.message, status: 502 });
+  }
+
   const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
   let parsed = null;
   try {
     const m = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/(\{[\s\S]*?\})/);
     if (m) parsed = JSON.parse(m[1]);
-  } catch (_) {
-    /* JSON 파싱 실패 시 raw만 반환 */
+  } catch (e) {
+    console.error('[OCR] JSON 파싱 실패:', e, '원문:', text);
   }
 
   return res.status(200).json({ data: parsed, raw: text });
