@@ -462,7 +462,6 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -518,7 +517,7 @@ function buildCtl(host,groups){
     h+='<div class="grp"><div class="grp-h">'+g.title+'</div>';
     g.items.forEach(function(it){
       allIds.push(it.id);
-      h+='<div class="row"><div class="row-top"><label>'+it.label+'<span id="ocr_'+it.id+'" class="ocr-badge" style="display:none">OCR</span></label>'+
+      h+='<div class="row"><div class="row-top"><label>'+it.label+'<span id="ocr_'+it.id+'" class="ocr-badge" style="display:none">AI</span></label>'+
          '<span class="val"><b id="v_'+it.id+'"></b><span class="unit">'+it.unit+'</span></span></div>'+
          '<input type="range" id="'+it.id+'" min="'+it.min+'" max="'+it.max+'" step="'+it.step+'" value="'+it.val+'"></div>';
     });
@@ -977,108 +976,88 @@ $('viewSeg').addEventListener('click',function(e){var b=e.target.closest('button
 drawEd(edF);drawEd(edS);
 refresh();
 
-/* ══ OCR: InBody / Acuniq reader (Tesseract.js) ════════════════════════ */
-var OCR_DEFS=[
-  /* eng OCR 출력 기준 키워드. 숫자는 키워드 뒤 50자 이내 첫 번째 숫자를 추출 */
-  {id:'weight',  min:30, max:150, kw:['body weight','weight']},
-  {id:'bodyfat', min:3,  max:60,  kw:['pbf','percent body fat','body fat','fat%','bf%']},
-  {id:'muscle',  min:10, max:60,  kw:['smm','skeletal muscle mass','skeletal muscle','lean body mass']},
-  {id:'visceral',min:1,  max:20,  kw:['visceral fat level','visceral fat index','visceral fat','vfi']},
-  {id:'waist',   min:50, max:140, kw:['waist circumference','waist girth','waist']},
+/* ══ AI 검사지 인식: InBody / Acuniq (Gemini) ══════════════════════════ */
+var AI_MAP=[
+  {key:'체중(kg)',        id:'weight',   min:40,  max:130},
+  {key:'골격근량(kg)',    id:'muscle',   min:18,  max:50 },
+  {key:'체지방률(%)',     id:'bodyfat',  min:5,   max:45 },
+  {key:'내장지방레벨(숫자)',id:'visceral',min:1,   max:20 },
+  {key:'복부둘레(cm)',    id:'waist',    min:60,  max:130},
+  {key:'신장(cm)',        id:'height',   min:140, max:200},
+  {key:'나이(세)',        id:'age',      min:15,  max:80 },
 ];
-var OCR_TOTAL=OCR_DEFS.length;
 
-var _tssWorker=null;
-
-/* Tesseract.js: 동기 스크립트로 로드됨 — 즉시 상태 표시 */
-(function(){
-  var stEl=$('ocrStatus');
-  if(typeof Tesseract!=='undefined'){
-    if(stEl){stEl.style.display='';stEl.innerHTML='<span style="color:var(--teal)">✓</span> 라이브러리 준비 완료';}
-  }else{
-    console.error('[OCR] Tesseract.js 로드 실패: CDN 연결을 확인하세요');
-    if(stEl){stEl.style.display='';stEl.textContent='⚠ OCR 라이브러리 로드 실패';}
-  }
-})();
-
-function ocrFindVal(text,kws){
-  for(var k=0;k<kws.length;k++){
-    /* 키워드 뒤 50자 이내에서 첫 번째 숫자(소수점 포함) 추출 */
-    var re=new RegExp(kws[k]+'[^0-9\\-]{0,50}(\\d+(?:[.,]\\d+)?)','i');
-    var m=text.match(re);
-    if(m)return parseFloat(m[1].replace(',','.'));
-  }
-  return null;
-}
-function parseOCRText(text){
-  var res={};
-  OCR_DEFS.forEach(function(f){
-    var v=ocrFindVal(text,f.kw);
-    if(v!==null&&v>=f.min&&v<=f.max)res[f.id]=v;
-  });
-  return res;
-}
-function applyOCRVals(vals){
-  OCR_DEFS.forEach(function(f){var b=$('ocr_'+f.id);if(b)b.style.display='none';});
+function applyAIVals(data){
+  AI_MAP.forEach(function(m){var b=$('ocr_'+m.id);if(b)b.style.display='none';});
   var hits=0;
-  Object.keys(vals).forEach(function(id){
-    var el=$(id);if(!el)return;
-    el.value=clamp(vals[id],+el.min,+el.max);
-    var b=$('ocr_'+id);if(b)b.style.display='';
+  AI_MAP.forEach(function(m){
+    var raw=data[m.key];
+    if(raw===null||raw===undefined)return;
+    var v=parseFloat(String(raw).replace(',','.'));
+    if(isNaN(v)||v<m.min||v>m.max)return;
+    var el=$(m.id);if(!el)return;
+    el.value=clamp(v,+el.min,+el.max);
+    var b=$('ocr_'+m.id);if(b)b.style.display='';
     hits++;
   });
   return hits;
 }
+
 function doOCR(file){
   var stEl=$('ocrStatus'),smEl=$('ocrSummary'),rawEl=$('ocrRaw'),rawT=$('ocrRawText');
   smEl.style.display='none';rawEl.style.display='none';
+  stEl.style.display='';stEl.innerHTML='<span class="spin"></span>AI 분석 중…';
 
-  if(typeof Tesseract==='undefined'){
-    stEl.style.display='';
-    stEl.textContent='⚠ OCR 라이브러리를 불러오지 못했어요. 새로고침 후 재시도해주세요.';
-    return;
-  }
+  var reader=new FileReader();
+  reader.onerror=function(){stEl.textContent='⚠ 이미지를 읽지 못했어요.';};
+  reader.onload=function(e){
+    var dataURL=e.target.result;
+    var comma=dataURL.indexOf(',');
+    var mimeType=dataURL.substring(5,dataURL.indexOf(';'));
+    var base64=dataURL.substring(comma+1);
 
-  stEl.style.display='';stEl.innerHTML='<span class="spin"></span>준비 중…';
+    fetch('/api/ocr',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({image:base64,mimeType:mimeType})
+    })
+    .then(function(r){
+      if(!r.ok)return r.json().then(function(e){throw new Error(e.error||'서버 오류');});
+      return r.json();
+    })
+    .then(function(res){
+      if(res.error&&!res.data){
+        stEl.textContent='⚠ '+res.error;
+        console.error('[AI OCR]',res);
+        return;
+      }
+      var data=res.data||{};
+      var hits=applyAIVals(data);
+      refresh();
 
-  function onProgress(m){
-    if(!m||!m.status)return;
-    var pct=m.progress?Math.round(m.progress*100):0;
-    if(m.status.indexOf('loading')!==-1||m.status.indexOf('initializing')!==-1){
-      stEl.innerHTML='<span class="spin"></span>언어팩 다운로드 '+pct+'%…';
-    }else if(m.status==='recognizing text'){
-      stEl.innerHTML='<span class="spin"></span>인식 중 '+pct+'%…';
-    }
-  }
-
-  var workerP=_tssWorker
-    ?Promise.resolve(_tssWorker)
-    :Tesseract.createWorker('eng',1,{logger:onProgress}).then(function(w){_tssWorker=w;return w;});
-
-  workerP.then(function(worker){
-    return worker.recognize(file);
-  }).then(function(result){
-    var text=(result.data&&result.data.text)||'';
-    var vals=parseOCRText(text);
-    var hits=applyOCRVals(vals);
-    refresh();
-
-    stEl.innerHTML='<span style="color:var(--teal)">✓</span> 인식 완료';
-    var miss=OCR_TOTAL-hits;
-    smEl.style.display='';
-    smEl.innerHTML='<span style="color:var(--teal)">인식된 항목: <b>'+hits+'개</b></span> / 전체 '+OCR_TOTAL+'개'+(miss?'<div style="color:var(--txt3);font-size:10.5px;margin-top:2px">나머지 '+miss+'개는 직접 입력해주세요</div>':'');
-    if(text.trim()){rawEl.style.display='';rawT.textContent=text.trim();}
-  }).catch(function(e){
-    stEl.textContent='⚠ OCR 오류: '+e.message;
-    console.error('[OCR] 오류:',e);
-    _tssWorker=null;
-  });
+      stEl.innerHTML='<span style="color:var(--teal)">✓</span> AI 분석 완료';
+      var miss=AI_MAP.length-hits;
+      smEl.style.display='';
+      smEl.innerHTML='<span style="color:var(--teal)"><b>'+hits+'개 항목 자동 입력됨</b></span>'
+        +(miss?'<div style="color:var(--txt3);font-size:10.5px;margin-top:2px">나머지 '+miss+'개는 직접 입력해주세요</div>':'');
+      if(res.raw&&res.raw.trim()){rawEl.style.display='';rawT.textContent=res.raw.trim();}
+    })
+    .catch(function(e){
+      stEl.textContent='⚠ 오류: '+e.message;
+      console.error('[AI OCR]',e);
+    });
+  };
+  reader.readAsDataURL(file);
 }
 
 (function(){
   var drop=$('ocrDrop'),inp=$('ocrFile');
-  drop.addEventListener('click',function(){inp.click();});
-  inp.addEventListener('change',function(e){var f=e.target.files[0];if(f){e.target.value='';doOCR(f);}});
+  /* label for="ocrFile"이 클릭을 처리 — 별도 click 핸들러 제거로 이중 다이얼로그 방지 */
+  inp.addEventListener('change',function(e){
+    var f=e.target.files[0];
+    e.target.value=''; /* 같은 파일 재선택 시 change 이벤트 재발생 보장 */
+    if(f)doOCR(f);
+  });
   drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('hot');});
   drop.addEventListener('dragleave',function(){drop.classList.remove('hot');});
   drop.addEventListener('drop',function(e){
