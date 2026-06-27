@@ -157,11 +157,15 @@
   .app-organ{grid-column:2;grid-row:1}
   .app-report{grid-column:3;grid-row:1;overflow-y:auto;display:flex;flex-direction:column}
   #panel3d{grid-column:1/4;grid-row:2}
+  /* musculo tab: report is inside panel3d — collapse grid col 3 and let posture expand */
+  .app.musculo .app-report{display:none}
+  .app.musculo .app-posture{grid-column:2/4}
   /* panel3d inner layout */
   .panel3d-body{display:flex;gap:14px;align-items:flex-start;margin-top:8px}
-  .panel3d-sidebar{width:262px;flex:none;max-height:42vh;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+  .panel3d-sidebar{width:262px;flex:none;min-height:0;display:flex;flex-direction:column;gap:10px}
   .panel3d-canvas{flex:1;min-width:0}
-  .panel3d-legend{display:flex;flex-direction:column;gap:7px;font-size:11px;color:var(--txt2);padding-bottom:8px;border-bottom:1px solid var(--line)}
+  /* canvas legend overlay */
+  .legend3d{position:absolute;bottom:12px;left:12px;background:rgba(10,15,21,.78);border:1px solid rgba(120,200,210,.15);border-radius:8px;padding:8px 11px;display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--txt2);pointer-events:none;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
   .app-posture .guide{flex:0 0 82px}
   .app-posture .gcap{font-size:9px;margin-top:3px}
   .pose-split{display:flex;gap:10px;align-items:flex-start}
@@ -354,23 +358,16 @@
           </div>
         </div>
         <div class="panel3d-body">
-          <!-- left: legend + notice + mesh list -->
+          <!-- left: musculo report -->
           <div class="panel3d-sidebar">
-            <div class="panel3d-legend">
-              <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--red)"></i>과부하 (단축·긴장)</span>
-              <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--blue)"></i>약화 (이완)</span>
-              <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:rgba(120,200,210,.3)"></i>정상</span>
+            <div id="notice3d" style="display:none;font-size:11.5px;color:var(--amber)"></div>
+            <div class="chips" id="chipsM"></div>
+            <div class="rep-h">
+              <span class="t">근골격 리포트</span>
+              <button class="ai-btn" id="aiBtnM">AI로 더 자세히</button>
             </div>
-            <details class="mob-details" open>
-              <summary class="mob-summary">근육 목록 ▾</summary>
-              <div id="notice3d" style="display:none;font-size:11.5px;color:var(--amber)"></div>
-              <div id="meshListPanel" style="display:none">
-                <div style="font:500 10.5px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--txt3);margin:0 0 8px;display:flex;align-items:center;gap:7px">감지된 근육 메쉬<span style="flex:1;height:1px;background:var(--line);display:inline-block"></span></div>
-                <input id="search3d" placeholder="근육 이름 검색 (예: trapezius)" style="width:100%;background:rgba(120,200,210,.06);border:1px solid var(--line);border-radius:8px;color:var(--txt);font:400 12.5px var(--sans);padding:8px 10px;margin-bottom:8px;box-sizing:border-box;outline:none">
-                <div id="count3d" style="font:500 11px var(--mono);color:var(--txt3);margin-bottom:7px"></div>
-                <div id="mlist3d" style="overflow-y:auto;margin:0 -2px;padding:0 2px"></div>
-              </div>
-            </details>
+            <div id="reportM"></div>
+            <div class="notice" id="noticeM" style="display:none"></div>
           </div>
           <!-- right: 3D canvas -->
           <div class="panel3d-canvas">
@@ -380,6 +377,12 @@
                 <div>🧍 3D 근육 모델이 여기 표시돼요</div>
                 <div><span style="color:var(--teal);font-weight:500">.glb 불러오기</span>로 Z-Anatomy 파일을 여세요</div>
                 <div style="font-size:11px">드래그=회전 · 휠/핀치=확대 · 우클릭=이동</div>
+              </div>
+              <!-- legend overlay (bottom-left of canvas) -->
+              <div class="legend3d">
+                <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--red)"></i>과부하 (단축·긴장)</span>
+                <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--blue)"></i>약화 (이완)</span>
+                <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:rgba(120,200,210,.3)"></i>정상</span>
               </div>
             </div>
           </div>
@@ -406,36 +409,30 @@
         </div>
       </div>
 
-    <!-- report -->
-    <div class="panel app-report">
-      <div class="only-mus">
-        <div class="chips" id="chipsM"></div>
-        <div class="rep-h">
-          <span class="t">근골격 리포트</span>
-          <button class="ai-btn" id="aiBtnM">AI로 더 자세히</button>
-        </div>
-        <div id="reportM"></div>
-        <div class="notice" id="noticeM" style="display:none"></div>
+    <!-- report: internal tab only (musculo report is inside #panel3d sidebar) -->
+    <div class="panel app-report only-int">
+      <div class="chips" id="chipsI"></div>
+      <div class="rep-h">
+        <span class="t">내과 리포트</span>
+        <button class="ai-btn" id="aiBtnI">AI로 더 자세히</button>
       </div>
-      <div class="only-int">
-        <div class="chips" id="chipsI"></div>
-        <div class="rep-h">
-          <span class="t">내과 리포트</span>
-          <button class="ai-btn" id="aiBtnI">AI로 더 자세히</button>
-        </div>
-        <div id="reportI"></div>
-        <div class="notice" id="noticeI" style="display:none"></div>
-      </div>
+      <div id="reportI"></div>
+      <div class="notice" id="noticeI" style="display:none"></div>
       <footer>
         <span style="color:var(--teal)">ⓘ</span>
         <span><b>의료 진단이 아닌 참고용</b>입니다. 자세·근육 분석은 단순 스크리닝이며 전문의 진단을 대체하지 않아요.</span>
       </footer>
     </div>
   </div>
-  <!-- hidden: JS-referenced elements removed from visible layout but still needed for muscle state -->
+  <!-- hidden: JS-referenced elements kept in DOM but not visible -->
   <div aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none">
     <div id="planeSeg"><button data-p="front" class="on"></button><button data-p="back"></button></div>
     <svg id="muscleSvg" viewBox="0 0 340 560" class="bodysvg front"></svg>
+    <div id="meshListPanel">
+      <input id="search3d" placeholder="">
+      <div id="count3d"></div>
+      <div id="mlist3d"></div>
+    </div>
   </div>
 </div>
 
