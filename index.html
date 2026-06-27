@@ -33,7 +33,7 @@
   .topsex{display:inline-flex;align-items:center;gap:8px}
   .topsex .tl{font:500 11px var(--mono);color:var(--txt3)}
 
-  .app{display:grid;grid-template-columns:262px 1fr minmax(280px,340px);grid-template-rows:50vh auto;gap:14px;align-items:stretch;margin-top:14px}
+  .app{display:grid;grid-template-columns:30% 1fr minmax(300px,35%);grid-template-rows:auto auto;gap:14px;align-items:stretch;margin-top:14px}
   .app.musculo .only-int{display:none}
   .app.internal .only-mus{display:none}
   .panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:13px}
@@ -163,9 +163,9 @@
   .ocr-raw[open] summary::before{content:"▾ "}
   .ocr-raw pre{margin:0;padding:8px 10px 10px;font:400 10.5px/1.65 var(--mono);color:var(--txt3);white-space:pre-wrap;word-break:break-all;border-top:1px solid var(--line)}
   /* 2×2 grid placement */
-  .app-sidebar{grid-column:1;grid-row:1;overflow-y:auto}
+  .app-sidebar{grid-column:1;grid-row:1}
   .app-posture{grid-column:2;grid-row:1;overflow-y:auto}
-  .app-organ{grid-column:2;grid-row:1}
+  .app-organ{grid-column:2;grid-row:1;overflow-y:auto}
   .app-report{grid-column:3;grid-row:1;overflow-y:auto;display:flex;flex-direction:column}
   #panel3d{grid-column:1/4;grid-row:2}
   /* musculo tab: report is inside panel3d — collapse grid col 3 and let posture expand */
@@ -173,7 +173,7 @@
   .app.musculo .app-posture{grid-column:2/4}
   /* panel3d inner layout */
   .panel3d-body{display:flex;gap:14px;align-items:flex-start;margin-top:8px}
-  .panel3d-sidebar{width:262px;flex:none;min-height:0;display:flex;flex-direction:column;gap:10px}
+  .panel3d-sidebar{width:290px;flex:none;min-height:0;display:flex;flex-direction:column;gap:10px}
   .panel3d-canvas{flex:1;min-width:0}
   /* canvas legend overlay */
   .legend3d{position:absolute;bottom:12px;left:12px;background:rgba(10,15,21,.78);border:1px solid rgba(120,200,210,.15);border-radius:8px;padding:8px 11px;display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--txt2);pointer-events:none;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
@@ -189,44 +189,54 @@
   /* ── desktop: hide mob elements, make <details> transparent ── */
   @media(min-width:769px){
     details.mob-details{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+    /* sidebar: expand to content, no internal scroll */
+    .app-sidebar{overflow-y:visible;height:auto}
+    /* posture & report: allow internal scroll when content exceeds panel */
+    .app-posture,.app-report{overflow-y:auto}
+    .app.musculo .app-posture{max-height:none}
   }
 
   /* ── tablet 769–960px: narrow columns ── */
   @media(max-width:960px) and (min-width:769px){
-    .app{grid-template-columns:200px 1fr minmax(200px,260px)}
-    .panel3d-sidebar{width:200px}
+    .app{grid-template-columns:28% 1fr minmax(220px,33%)}
+    .panel3d-sidebar{width:220px}
     .app-posture .guide{flex:0 0 70px}
   }
 
   /* ── mobile ≤768px ── */
   @media(max-width:768px){
     body{overflow-x:hidden}
-    .wrap{padding:12px 12px 48px}
+    .wrap{padding:12px 8px 48px;overflow-x:hidden}
     h1{font-size:18px}
     .sub{font-size:12px}
-    /* single column grid */
-    .app{grid-template-columns:1fr;grid-template-rows:auto;align-items:start;gap:10px}
-    .app-sidebar,.app-posture,.app-report,.app-organ{grid-column:1;grid-row:auto;height:auto;max-height:none}
-    #panel3d{grid-column:1;grid-row:auto}
+    /* single column grid — panels full width in DOM order */
+    .app{display:flex;flex-direction:column;gap:10px}
+    .app-sidebar,.app-posture,.app-report,.app-organ,#panel3d{width:100%;max-width:100%;box-sizing:border-box}
+    /* mobile panel ordering */
+    .app-sidebar{order:1;overflow-y:visible;height:auto}
+    .app-posture{order:2}
+    .app-report{order:3;max-height:none;display:block}
+    #panel3d{order:4}
+    .app-organ{order:5}
     /* touch-friendly buttons (min 44px) */
     .ai-btn{padding:10px 14px;font-size:12.5px;min-height:44px}
     .modebar button{padding:10px 14px;min-height:44px;font-size:13px}
     .seg button{padding:9px 12px;min-height:40px;font-size:12px}
-    /* larger sliders */
-    input[type=range]{height:5px}
+    input[type=range]{height:5px;min-height:44px;padding:18px 0}
     input[type=range]::-webkit-slider-thumb{width:22px;height:22px}
     input[type=range]::-moz-range-thumb{width:20px;height:20px}
     .row{margin-bottom:14px}
     .row-top label{font-size:13px}
-    /* posture: vertical stack */
+    /* posture: vertical stack, hide guide thumbnails */
     .pose-split{flex-direction:column}
-    .app-posture .guide{flex:0 0 130px}
-    .app-posture .gcap{font-size:10.5px}
-    .editor{max-height:42vh;flex:1 1 220px;min-width:190px}
-    /* 3D panel: canvas on top, list below (column-reverse so canvas shows first) */
-    .panel3d-body{flex-direction:column-reverse;gap:10px}
-    .panel3d-sidebar{width:100%;max-height:none}
-    #view3d{height:50vh !important;min-height:220px !important}
+    .app-posture .guide{display:none}
+    .editor{max-height:42vh;flex:1 1 220px;min-width:190px;width:100%}
+    /* 3D panel: 리포트(사이드바)를 위, 캔버스를 아래 */
+    .panel3d-body{flex-direction:column;gap:10px;overflow:hidden;max-width:100%}
+    .panel3d-sidebar{width:100%;max-width:100%;max-height:none}
+    .panel3d-canvas{width:100%;max-width:100%;overflow:hidden}
+    canvas#view3d{width:100% !important;max-width:100% !important;height:50vh !important;min-height:220px !important;display:block}
+    #panel3d{overflow:hidden}
     /* collapsible mesh list */
     .mob-summary{display:flex}
     details.mob-details{border:0;padding:0;margin:0}
@@ -237,6 +247,9 @@
     .metrics{grid-template-columns:1fr}
     .auto-row{gap:6px}
     .stage-top .lab{font-size:10px}
+    /* OCR 차트: 모바일에서 세로 배치 */
+    #ocrCharts>div:last-child{flex-direction:column}
+    #ocrCharts>div:last-child>div{height:180px}
   }
 </style>
 </head>
