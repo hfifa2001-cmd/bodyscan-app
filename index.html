@@ -277,6 +277,15 @@
           <summary>OCR 원문 텍스트 보기</summary>
           <pre id="ocrRawText"></pre>
         </details>
+        <div id="ocrResultCard" style="display:none;border:1px solid var(--line);border-radius:9px;margin-top:6px;padding:8px 11px;font-size:12px;line-height:1.8"></div>
+        <div id="ocrGoalCard" style="display:none;border:1px solid var(--line);border-radius:9px;margin-top:6px;padding:8px 11px;font-size:12px;line-height:1.8"></div>
+        <div id="ocrCharts" style="display:none;margin-top:10px">
+          <div style="font-size:10.5px;font-weight:600;color:var(--txt3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px">부위별 근육 / 지방 분포</div>
+          <div style="display:flex;gap:6px">
+            <div style="flex:1;position:relative;height:148px"><canvas id="chartMuscle"></canvas></div>
+            <div style="flex:1;position:relative;height:148px"><canvas id="chartFat"></canvas></div>
+          </div>
+        </div>
         <div style="height:1px;background:var(--line);margin:10px 0 12px"></div>
       </div>
       <div class="only-mus" id="ctlMusculo"></div>
@@ -462,6 +471,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -482,15 +492,10 @@ var musGroups=[
     {id:'weight',label:'몸무게',    min:40, max:130,step:1, val:82, unit:'kg'}
   ]},
   {title:'체형 정밀',items:[
-    {id:'bodyfat', label:'체지방률',   min:5,  max:45, step:.5,val:24, unit:'%'},
-    {id:'muscle',  label:'골격근량',   min:18, max:50, step:.5,val:32, unit:'kg'},
-    {id:'visceral',label:'내장지방',   min:1,  max:20, step:1, val:11, unit:'lv'},
-    {id:'chest',   label:'가슴둘레',   min:75, max:130,step:1, val:100,unit:'cm'},
-    {id:'waist',   label:'허리둘레',   min:60, max:130,step:1, val:92, unit:'cm'},
-    {id:'hip',     label:'엉덩이둘레', min:75, max:130,step:1, val:100,unit:'cm'},
-    {id:'thigh',   label:'허벅지둘레', min:40, max:75, step:1, val:56, unit:'cm'},
-    {id:'arm',     label:'팔뚝둘레',   min:22, max:45, step:1, val:32, unit:'cm'},
-    {id:'wrist',   label:'손목·프레임',min:13, max:22, step:.5,val:17, unit:'cm'}
+    {id:'bodyfat', label:'체지방률', min:5,  max:45, step:.5,val:24, unit:'%'},
+    {id:'muscle',  label:'골격근량', min:18, max:50, step:.5,val:32, unit:'kg'},
+    {id:'visceral',label:'내장지방', min:1,  max:20, step:1, val:11, unit:'lv'},
+    {id:'waist',   label:'허리둘레', min:60, max:130,step:1, val:92, unit:'cm'}
   ]}
 ];
 var intGroups=[
@@ -534,7 +539,7 @@ if(saved){
   allIds.forEach(function(id){if(saved[id]!=null&&$(id))$(id).value=saved[id]});
   if(SEX==='F')[].forEach.call($('sexSeg').children,function(b){b.classList.toggle('on',b.dataset.s==='F')});
 }
-function S(){var o={sex:SEX};allIds.forEach(function(id){var el=$(id);if(el)o[id]=parseFloat(el.value)});return o}
+function S(){var o={sex:SEX,chest:100,hip:100,thigh:56,wrist:17,arm:32};allIds.forEach(function(id){var el=$(id);if(el)o[id]=parseFloat(el.value)});return o}
 
 /* ── Body geometry ── */
 var CX=170, L={neckTop:96,shoulder:118,chest:158,waist:222,hip:260,pelvis:292,thighTop:288,ankle:500};
@@ -978,23 +983,29 @@ refresh();
 
 /* ══ AI 검사지 인식: InBody / Acuniq (Gemini) ══════════════════════════ */
 var AI_MAP=[
-  {key:'체중(kg)',        id:'weight',   min:40,  max:130},
-  {key:'골격근량(kg)',    id:'muscle',   min:18,  max:50 },
-  {key:'체지방률(%)',     id:'bodyfat',  min:5,   max:45 },
-  {key:'내장지방레벨(숫자)',id:'visceral',min:1,   max:20 },
-  {key:'복부둘레(cm)',    id:'waist',    min:60,  max:130},
-  {key:'신장(cm)',        id:'height',   min:140, max:200},
-  {key:'나이(세)',        id:'age',      min:15,  max:80 },
+  {key:'체중kg',       id:'weight',   min:40,  max:130},
+  {key:'골격근량kg',   id:'muscle',   min:18,  max:50 },
+  {key:'체지방률',     id:'bodyfat',  min:5,   max:45 },
+  {key:'내장지방레벨', id:'visceral', min:1,   max:20 },
+  {key:'복부둘레cm',   id:'waist',    min:60,  max:130},
+  {key:'신장cm',       id:'height',   min:140, max:200},
+  {key:'나이',         id:'age',      min:15,  max:80 },
 ];
+
+var _chartMuscle=null,_chartFat=null;
+
+function _n(v){
+  if(v===null||v===undefined)return null;
+  var n=parseFloat(String(v).replace(',','.'));
+  return isNaN(n)?null:n;
+}
 
 function applyAIVals(data){
   AI_MAP.forEach(function(m){var b=$('ocr_'+m.id);if(b)b.style.display='none';});
   var hits=0;
   AI_MAP.forEach(function(m){
-    var raw=data[m.key];
-    if(raw===null||raw===undefined)return;
-    var v=parseFloat(String(raw).replace(',','.'));
-    if(isNaN(v)||v<m.min||v>m.max)return;
+    var v=_n(data[m.key]);
+    if(v===null||v<m.min||v>m.max)return;
     var el=$(m.id);if(!el)return;
     el.value=clamp(v,+el.min,+el.max);
     var b=$('ocr_'+m.id);if(b)b.style.display='';
@@ -1003,9 +1014,116 @@ function applyAIVals(data){
   return hits;
 }
 
+function renderResultCard(data){
+  var card=$('ocrResultCard');if(!card)return;
+  var rows=[];
+  var bmi=_n(data['BMI']);if(bmi!==null)rows.push(['BMI',bmi]);
+  var fat=_n(data['체지방kg']);if(fat!==null)rows.push(['체지방',fat+' kg']);
+  var bmr=_n(data['기초대사량kcal']);if(bmr!==null)rows.push(['기초대사량',Math.round(bmr).toLocaleString()+' kcal']);
+  var stage=data['내장지방단계'];
+  if(stage){
+    var danger=['경계','내장비만','고도내장비만'].indexOf(stage)!==-1;
+    rows.push(['내장지방단계','<b style="color:'+(danger?'#e55a5a':'var(--teal)')+'">'+stage+'</b>']);
+  }
+  if(!rows.length){card.style.display='none';return;}
+  card.innerHTML='<div style="font-size:10.5px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">검사 결과 요약</div>'
+    +rows.map(function(r){
+      return '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:1px 0">'
+        +'<span style="color:var(--txt3)">'+r[0]+'</span><span style="font-weight:500">'+r[1]+'</span></div>';
+    }).join('');
+  card.style.display='';
+}
+
+function renderGoalCard(data){
+  var card=$('ocrGoalCard');if(!card)return;
+  function delta(v){v=_n(v);return v===null?null:(v>0?'+':'')+v;}
+  var rows=[];
+  var rw=_n(data['권장체중kg']);if(rw!==null)rows.push(['권장체중',rw+' kg']);
+  var wt=delta(data['체중조절kg']);if(wt!==null)rows.push(['체중조절',wt+' kg']);
+  var mu=delta(data['근육조절kg']);if(mu!==null)rows.push(['근육조절',mu+' kg']);
+  var ft=delta(data['지방조절kg']);if(ft!==null)rows.push(['지방조절',ft+' kg']);
+  if(!rows.length){card.style.display='none';return;}
+  card.innerHTML='<div style="font-size:10.5px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">체중조절 목표</div>'
+    +rows.map(function(r){
+      return '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:1px 0">'
+        +'<span style="color:var(--txt3)">'+r[0]+'</span><span style="font-weight:500">'+r[1]+'</span></div>';
+    }).join('');
+  card.style.display='';
+}
+
+function renderRadarCharts(data){
+  var labels=['몸통','오른팔','왼팔','오른다리','왼다리'];
+  var mKg =['근육량_몸통kg','근육량_오른팔kg','근육량_왼팔kg','근육량_오른다리kg','근육량_왼다리kg'];
+  var mPct=['근육량_몸통퍼센트','근육량_오른팔퍼센트','근육량_왼팔퍼센트','근육량_오른다리퍼센트','근육량_왼다리퍼센트'];
+  var fKg =['지방량_몸통kg','지방량_오른팔kg','지방량_왼팔kg','지방량_오른다리kg','지방량_왼다리kg'];
+  var fPct=['지방량_몸통퍼센트','지방량_오른팔퍼센트','지방량_왼팔퍼센트','지방량_오른다리퍼센트','지방량_왼다리퍼센트'];
+  var mv=mKg.map(function(k){return _n(data[k]);});
+  var mp=mPct.map(function(k){return _n(data[k]);});
+  var fv=fKg.map(function(k){return _n(data[k]);});
+  var fp=fPct.map(function(k){return _n(data[k]);});
+  var hasMu=mv.some(function(v){return v!==null;});
+  var hasFt=fv.some(function(v){return v!==null;});
+  var box=$('ocrCharts');
+  if(!hasMu&&!hasFt){if(box)box.style.display='none';return;}
+  if(box)box.style.display='';
+  if(typeof Chart==='undefined')return;
+
+  function makeChart(canvasId,vals,pcts,color){
+    return new Chart($(canvasId),{
+      type:'radar',
+      data:{
+        labels:labels,
+        datasets:[{
+          data:vals.map(function(v){return v!==null?v:0;}),
+          backgroundColor:color.bg,
+          borderColor:color.bd,
+          pointBackgroundColor:color.bd,
+          pointRadius:3,
+          borderWidth:2,
+        }]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{label:function(ctx){
+            var i=ctx.dataIndex,kg=vals[i],pct=pcts[i];
+            return (kg!==null?kg+' kg':'−')+(pct!==null?' / '+pct+'%':'');
+          }}}
+        },
+        scales:{r:{
+          min:0,
+          ticks:{display:false},
+          grid:{color:'rgba(255,255,255,.07)'},
+          angleLines:{color:'rgba(255,255,255,.07)'},
+          pointLabels:{
+            font:{size:9},color:'#8a9fba',
+            callback:function(lbl,i){
+              var kg=vals[i],pct=pcts[i];
+              var sub=(kg!==null?kg+'kg'+'':'' )+(pct!==null?'/'+pct+'%':'');
+              return sub?[lbl,sub]:lbl;
+            }
+          }
+        }}
+      }
+    });
+  }
+
+  if(hasMu){
+    if(_chartMuscle){_chartMuscle.destroy();_chartMuscle=null;}
+    _chartMuscle=makeChart('chartMuscle',mv,mp,{bg:'rgba(47,224,206,.15)',bd:'rgba(47,224,206,.85)'});
+  }
+  if(hasFt){
+    if(_chartFat){_chartFat.destroy();_chartFat=null;}
+    _chartFat=makeChart('chartFat',fv,fp,{bg:'rgba(255,100,80,.15)',bd:'rgba(255,100,80,.85)'});
+  }
+}
+
 function doOCR(file){
   var stEl=$('ocrStatus'),smEl=$('ocrSummary'),rawEl=$('ocrRaw'),rawT=$('ocrRawText');
   smEl.style.display='none';rawEl.style.display='none';
+  ['ocrResultCard','ocrGoalCard','ocrCharts'].forEach(function(id){var el=$(id);if(el)el.style.display='none';});
   stEl.style.display='';stEl.innerHTML='<span class="spin"></span>분석 중…';
 
   var reader=new FileReader();
@@ -1022,18 +1140,20 @@ function doOCR(file){
       body:JSON.stringify({image:base64,mimeType:mimeType})
     })
     .then(function(r){
-      if(!r.ok)return r.json().then(function(e){throw new Error(e.error||'서버 오류');});
+      if(!r.ok)return r.json().then(function(j){throw new Error(j.message||j.error||'서버 오류');});
       return r.json();
     })
     .then(function(res){
       if(res.error&&!res.data){
-        stEl.textContent='⚠ '+res.error;
-        console.error('[AI OCR]',res);
-        return;
+        stEl.textContent='⚠ '+(res.message||res.error);
+        console.error('[AI OCR]',res);return;
       }
       var data=res.data||{};
       var hits=applyAIVals(data);
       refresh();
+      renderResultCard(data);
+      renderGoalCard(data);
+      renderRadarCharts(data);
 
       stEl.innerHTML='<span style="color:var(--teal)">✓</span> AI 분석 완료';
       var miss=AI_MAP.length-hits;
@@ -1052,10 +1172,9 @@ function doOCR(file){
 
 (function(){
   var drop=$('ocrDrop'),inp=$('ocrFile');
-  /* label for="ocrFile"이 클릭을 처리 — 별도 click 핸들러 제거로 이중 다이얼로그 방지 */
   inp.addEventListener('change',function(e){
     var f=e.target.files[0];
-    e.target.value=''; /* 같은 파일 재선택 시 change 이벤트 재발생 보장 */
+    e.target.value='';
     if(f)doOCR(f);
   });
   drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('hot');});

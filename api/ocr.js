@@ -14,9 +14,21 @@ export default async function handler(req, res) {
   if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY 환경변수가 설정되지 않았습니다.' });
 
   const prompt =
-    '이 InBody 또는 아큐닉 체성분 검사지에서 다음 수치를 찾아서 JSON으로만 반환해줘. 없으면 null.\n' +
-    '{"체중(kg)": null, "골격근량(kg)": null, "체지방(kg)": null, "체지방률(%)": null, ' +
-    '"BMI": null, "내장지방레벨(숫자)": null, "복부둘레(cm)": null, "신장(cm)": null, "나이(세)": null}';
+    '이 InBody 또는 아큐닉 체성분 검사지에서 다음 수치를 찾아서 JSON으로만 반환해줘. ' +
+    '없으면 null. 숫자는 단위 없이 숫자만. 내장지방단계는 "피하형/균형형/경계/내장비만/고도내장비만" 중 하나.\n' +
+    '{"체중kg":null,"골격근량kg":null,"체지방kg":null,"체지방률":null,"BMI":null,' +
+    '"내장지방레벨":null,"내장지방단계":null,"복부둘레cm":null,"신장cm":null,"나이":null,' +
+    '"기초대사량kcal":null,"권장체중kg":null,"체중조절kg":null,"근육조절kg":null,"지방조절kg":null,' +
+    '"근육량_몸통kg":null,"근육량_몸통퍼센트":null,' +
+    '"근육량_오른팔kg":null,"근육량_오른팔퍼센트":null,' +
+    '"근육량_왼팔kg":null,"근육량_왼팔퍼센트":null,' +
+    '"근육량_오른다리kg":null,"근육량_오른다리퍼센트":null,' +
+    '"근육량_왼다리kg":null,"근육량_왼다리퍼센트":null,' +
+    '"지방량_몸통kg":null,"지방량_몸통퍼센트":null,' +
+    '"지방량_오른팔kg":null,"지방량_오른팔퍼센트":null,' +
+    '"지방량_왼팔kg":null,"지방량_왼팔퍼센트":null,' +
+    '"지방량_오른다리kg":null,"지방량_오른다리퍼센트":null,' +
+    '"지방량_왼다리kg":null,"지방량_왼다리퍼센트":null}';
 
   let geminiRes;
   try {
