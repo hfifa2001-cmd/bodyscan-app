@@ -236,10 +236,9 @@
     .panel3d-body{flex-direction:column;gap:10px;overflow:hidden;max-width:100%}
     .panel3d-mid{width:100%;max-width:100%}
     .panel3d-left{display:none}
-    .panel3d-canvas{display:none}
+    .panel3d-canvas{width:100%;max-width:100%;overflow:hidden;display:block}
+    canvas#view3d{display:block !important;width:100% !important;max-width:100% !important;height:50vh !important;min-height:220px !important}
     #chipsM{flex-wrap:wrap}
-    .panel3d-canvas{width:100%;max-width:100%;overflow:hidden}
-    canvas#view3d{width:100% !important;max-width:100% !important;height:50vh !important;min-height:220px !important;display:block}
     #panel3d{overflow:hidden}
     /* collapsible mesh list */
     .mob-summary{display:flex}
@@ -1243,8 +1242,10 @@ function doOCR(file){
   var kl=new THREE.DirectionalLight(0xffffff,0.9);kl.position.set(2,4,3);sc3.add(kl);
   var fl=new THREE.DirectionalLight(0xbfe3e0,0.4);fl.position.set(-3,1,-2);sc3.add(fl);
 
-  function sz3(){var r=cv.getBoundingClientRect();if(!r.width||!r.height)return;rn3.setSize(r.width,r.height,false);cm3.aspect=r.width/Math.max(r.height,1);cm3.updateProjectionMatrix();}
-  window.addEventListener('resize',sz3);sz3();
+  function sz3(){var r=cv.getBoundingClientRect();if(!r.width||!r.height){setTimeout(sz3,150);return;}rn3.setSize(r.width,r.height,false);cm3.aspect=r.width/Math.max(r.height,1);cm3.updateProjectionMatrix();}
+  window.addEventListener('resize',sz3);
+  /* 캔버스가 처음 레이아웃에 포함된 직후 크기를 잡아야 Three.js가 정상 렌더링됨 */
+  setTimeout(function(){sz3();window.dispatchEvent(new Event('resize'));},200);
   (function lp(){requestAnimationFrame(lp);ct3.update();rn3.render(sc3,cm3);})();
 
   /* opacity levels for the semi-transparent base layer */
