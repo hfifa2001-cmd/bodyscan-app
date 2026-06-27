@@ -232,14 +232,15 @@
     .pose-split{flex-direction:column}
     .app-posture .guide{display:none}
     .editor{max-height:42vh;flex:1 1 220px;min-width:190px;width:100%}
-    /* 3D panel: 리포트(사이드바)를 위, 캔버스를 아래 */
-    .panel3d-body{flex-direction:column;gap:10px;overflow:hidden;max-width:100%}
+    /* 3D panel: 모바일 1열 */
+    .panel3d-body{flex-direction:column;gap:10px;overflow:visible;max-width:100%}
     .panel3d-mid{width:100%;max-width:100%}
     .panel3d-left{display:none}
-    .panel3d-canvas{width:100%;max-width:100%;overflow:hidden;display:block}
-    canvas#view3d{display:block !important;width:100% !important;max-width:100% !important;height:50vh !important;min-height:220px !important}
+    /* flex-basis:0 이 column 방향에서 높이 붕괴를 일으키므로 flex 해제 후 명시적 높이 지정 */
+    .panel3d-canvas{flex:none !important;width:100% !important;max-width:100%;height:50vh;min-height:220px;overflow:visible;display:block}
+    canvas#view3d{display:block !important;width:100% !important;max-width:100% !important;height:100% !important;min-height:220px !important}
     #chipsM{flex-wrap:wrap}
-    #panel3d{overflow:hidden}
+    #panel3d{overflow:visible}
     /* collapsible mesh list */
     .mob-summary{display:flex}
     details.mob-details{border:0;padding:0;margin:0}
