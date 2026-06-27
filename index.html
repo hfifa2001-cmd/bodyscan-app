@@ -151,6 +151,17 @@
   .notice{font-size:11px;color:var(--amber);margin-top:8px}
   footer{margin-top:14px;font-size:11px;color:var(--txt3);line-height:1.5;display:flex;gap:7px;align-items:flex-start}
   footer b{color:var(--txt2);font-weight:500}
+  /* OCR */
+  .ocr-badge{font:600 8.5px/1 var(--mono);background:rgba(47,224,206,.13);color:var(--teal);border:1px solid rgba(47,224,206,.3);border-radius:4px;padding:1px 5px;margin-left:5px;vertical-align:middle;letter-spacing:.03em}
+  .ocr-drop{border:1.5px dashed var(--line2);border-radius:10px;padding:9px 10px 8px;text-align:center;cursor:pointer;transition:.15s;background:rgba(120,200,210,.03);display:block;margin-bottom:10px;color:var(--txt2);font-size:12px;user-select:none}
+  .ocr-drop:hover{border-color:var(--teal);background:rgba(47,224,206,.05)}
+  .ocr-drop.hot{border-color:var(--teal);background:rgba(47,224,206,.08)}
+  .ocr-raw{border:1px solid var(--line);border-radius:9px;margin-top:6px}
+  .ocr-raw summary{cursor:pointer;font:400 11.5px var(--sans);color:var(--txt3);padding:7px 10px;list-style:none;display:flex;align-items:center;gap:5px}
+  .ocr-raw summary::-webkit-details-marker{display:none}
+  .ocr-raw summary::before{content:"▸ ";color:var(--teal);font-size:10px}
+  .ocr-raw[open] summary::before{content:"▾ "}
+  .ocr-raw pre{margin:0;padding:8px 10px 10px;font:400 10.5px/1.65 var(--mono);color:var(--txt3);white-space:pre-wrap;word-break:break-all;border-top:1px solid var(--line)}
   /* 2×2 grid placement */
   .app-sidebar{grid-column:1;grid-row:1;overflow-y:auto}
   .app-posture{grid-column:2;grid-row:1;overflow-y:auto}
@@ -253,6 +264,21 @@
   <div class="app musculo" id="app">
     <!-- sidebar -->
     <div class="panel app-sidebar">
+      <!-- OCR upload (musculo tab only) -->
+      <div class="only-mus">
+        <label class="ocr-drop" id="ocrDrop" for="ocrFile">
+          <div>📋 <b style="color:var(--txt)">검사지 사진 업로드</b></div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:2px">InBody · 아큐닉 수치 자동 인식</div>
+        </label>
+        <input type="file" id="ocrFile" accept="image/*" hidden>
+        <div id="ocrStatus" style="display:none;font-size:12px;color:var(--txt2);margin-bottom:6px"></div>
+        <div id="ocrSummary" style="display:none;font-size:11.5px;margin-bottom:4px"></div>
+        <details class="ocr-raw" id="ocrRaw" style="display:none">
+          <summary>OCR 원문 텍스트 보기</summary>
+          <pre id="ocrRawText"></pre>
+        </details>
+        <div style="height:1px;background:var(--line);margin:10px 0 12px"></div>
+      </div>
       <div class="only-mus" id="ctlMusculo"></div>
       <div class="only-int" id="ctlInternal"></div>
     </div>
@@ -436,6 +462,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/ppu-paddle-ocr/dist/web/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -491,7 +518,7 @@ function buildCtl(host,groups){
     h+='<div class="grp"><div class="grp-h">'+g.title+'</div>';
     g.items.forEach(function(it){
       allIds.push(it.id);
-      h+='<div class="row"><div class="row-top"><label>'+it.label+'</label>'+
+      h+='<div class="row"><div class="row-top"><label>'+it.label+'<span id="ocr_'+it.id+'" class="ocr-badge" style="display:none">OCR</span></label>'+
          '<span class="val"><b id="v_'+it.id+'"></b><span class="unit">'+it.unit+'</span></span></div>'+
          '<input type="range" id="'+it.id+'" min="'+it.min+'" max="'+it.max+'" step="'+it.step+'" value="'+it.val+'"></div>';
     });
@@ -949,6 +976,118 @@ $('viewSeg').addEventListener('click',function(e){var b=e.target.closest('button
 /* ── Init ── */
 drawEd(edF);drawEd(edS);
 refresh();
+
+/* ══ OCR: InBody / Acuniq reader ════════════════════════════════════════ */
+var OCR_DEFS=[
+  {id:'weight',  min:30, max:150,kw:['체중','body weight','몸무게','weight\\b']},
+  {id:'bodyfat', min:3,  max:60, kw:['체지방률','체지방\\s*%','체지방\\s*률','body fat','percent body fat','fat\\s*%','bf\\s*%']},
+  {id:'muscle',  min:10, max:60, kw:['골격근량','골격\\s*근량','skeletal muscle mass','lean body mass','smm\\b']},
+  {id:'visceral',min:1,  max:20, kw:['내장지방\\s*레벨','내장지방\\s*지수','내장지방레벨','visceral fat level','visceral fat rating','vfi\\b']},
+  {id:'waist',   min:50, max:140,kw:['허리\\s*둘레','waist circumference','waist\\s*girth','허리둘레']},
+];
+var OCR_TOTAL=OCR_DEFS.length;
+
+function ocrFindVal(text,kws){
+  for(var k=0;k<kws.length;k++){
+    var re=new RegExp(kws[k]+'[^0-9\\-]{0,25}(\\d+(?:[.,]\\d+)?)','i');
+    var m=text.match(re);
+    if(m)return parseFloat(m[1].replace(',','.'));
+  }
+  return null;
+}
+function parseOCRText(text){
+  var res={};
+  OCR_DEFS.forEach(function(f){
+    var v=ocrFindVal(text,f.kw);
+    if(v!==null&&v>=f.min&&v<=f.max)res[f.id]=v;
+  });
+  return res;
+}
+function applyOCRVals(vals){
+  OCR_DEFS.forEach(function(f){var b=$('ocr_'+f.id);if(b)b.style.display='none';});
+  var hits=0;
+  Object.keys(vals).forEach(function(id){
+    var el=$(id);if(!el)return;
+    el.value=clamp(vals[id],+el.min,+el.max);
+    var b=$('ocr_'+id);if(b)b.style.display='';
+    hits++;
+  });
+  return hits;
+}
+function doOCR(file){
+  var stEl=$('ocrStatus'),smEl=$('ocrSummary'),rawEl=$('ocrRaw'),rawT=$('ocrRawText');
+  stEl.style.display='';stEl.innerHTML='<span class="spin"></span>분석 중…';
+  smEl.style.display='none';rawEl.style.display='none';
+
+  var url=URL.createObjectURL(file);
+  var img=new Image();
+  img.onerror=function(){stEl.textContent='⚠ 이미지를 읽지 못했어요.';URL.revokeObjectURL(url);};
+  img.onload=function(){
+    var cv=document.createElement('canvas');
+    cv.width=img.naturalWidth;cv.height=img.naturalHeight;
+    cv.getContext('2d').drawImage(img,0,0);
+    URL.revokeObjectURL(url);
+
+    /* ppu-paddle-ocr: try common export patterns */
+    var ocrFn=null;
+    var candidates=[
+      window.PaddleOCR,window.paddleOcr,window.paddleocr,
+      window['ppu-paddle-ocr'],window.ppuPaddleOcr
+    ];
+    for(var i=0;i<candidates.length;i++){
+      var c=candidates[i];if(!c)continue;
+      if(typeof c==='function'){ocrFn=c;break;}
+      if(c&&typeof c.ocr==='function'){ocrFn=function(img){return c.ocr(img)};break;}
+      if(c&&typeof c.recognize==='function'){ocrFn=function(img){return c.recognize(img)};break;}
+      if(c&&typeof c.default==='function'){ocrFn=c.default;break;}
+    }
+    if(!ocrFn){
+      stEl.textContent='⚠ OCR 라이브러리를 찾지 못했어요. 새로고침 후 재시도해주세요.';return;
+    }
+
+    Promise.resolve().then(function(){return ocrFn(cv);}).then(function(result){
+      /* normalize to plain text */
+      var text='';
+      if(typeof result==='string'){text=result;}
+      else if(Array.isArray(result)){
+        result.forEach(function(item){
+          if(!item)return;
+          if(typeof item==='string'){text+=item+'\n';}
+          else if(item.text){text+=item.text+'\n';}
+          else if(Array.isArray(item)&&item[1]){text+=(Array.isArray(item[1])?item[1][0]:item[1])+'\n';}
+        });
+      }else if(result&&result.text){text=result.text;}
+      else if(result&&result.words){text=result.words.map(function(w){return w.text||w}).join('\n');}
+      else{text=JSON.stringify(result);}
+
+      var vals=parseOCRText(text);
+      var hits=applyOCRVals(vals);
+      refresh();
+
+      stEl.innerHTML='<span style="color:var(--teal)">✓</span> 인식 완료';
+      var miss=OCR_TOTAL-hits;
+      smEl.style.display='';
+      smEl.innerHTML='<span style="color:var(--teal)">인식된 항목: <b>'+hits+'개</b></span> / 전체 '+OCR_TOTAL+'개'+(miss?'<div style="color:var(--txt3);font-size:10.5px;margin-top:2px">나머지 '+miss+'개는 직접 입력해주세요</div>':'');
+      if(text.trim()){rawEl.style.display='';rawT.textContent=text.trim();}
+    }).catch(function(e){
+      stEl.textContent='⚠ OCR 오류: '+e.message;
+    });
+  };
+  img.src=url;
+}
+
+(function(){
+  var drop=$('ocrDrop'),inp=$('ocrFile');
+  drop.addEventListener('click',function(){inp.click();});
+  inp.addEventListener('change',function(e){var f=e.target.files[0];if(f){e.target.value='';doOCR(f);}});
+  drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('hot');});
+  drop.addEventListener('dragleave',function(){drop.classList.remove('hot');});
+  drop.addEventListener('drop',function(e){
+    e.preventDefault();drop.classList.remove('hot');
+    var f=e.dataTransfer.files[0];
+    if(f&&f.type.startsWith('image/'))doOCR(f);
+  });
+})();
 
 /* ══ STAGE 4: THREE.JS 3D MUSCLE MAP ════════════════════════════════════ */
 (function(){
