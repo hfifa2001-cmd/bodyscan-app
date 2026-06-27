@@ -173,9 +173,9 @@
   .app.musculo .app-posture{grid-column:2/4}
   /* panel3d inner layout */
   .panel3d-body{display:flex;gap:14px;align-items:flex-start;margin-top:8px}
-  .panel3d-left{flex:35 1 0;min-width:200px;min-height:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
-  .panel3d-right{flex:65 1 0;min-width:0;display:flex;flex-direction:column;gap:12px}
-  .panel3d-canvas{min-width:0}
+  .panel3d-left{flex:28 1 0;min-width:160px;min-height:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+  .panel3d-mid{flex:22 1 0;min-width:140px;display:flex;flex-direction:column;gap:10px}
+  .panel3d-canvas{flex:50 1 0;min-width:0}
   /* canvas legend overlay */
   .legend3d{position:absolute;bottom:12px;left:12px;background:rgba(10,15,21,.78);border:1px solid rgba(120,200,210,.15);border-radius:8px;padding:8px 11px;display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--txt2);pointer-events:none;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
   .app-posture .guide{flex:0 0 82px}
@@ -234,9 +234,9 @@
     .editor{max-height:42vh;flex:1 1 220px;min-width:190px;width:100%}
     /* 3D panel: 리포트(사이드바)를 위, 캔버스를 아래 */
     .panel3d-body{flex-direction:column;gap:10px;overflow:hidden;max-width:100%}
-    .panel3d-right{width:100%;max-width:100%;order:1}
-    .panel3d-left{width:100%;max-width:100%;max-height:none;overflow-y:visible;order:2}
-    .panel3d-canvas{width:100%;max-width:100%;overflow:hidden}
+    .panel3d-mid{width:100%;max-width:100%;order:1}
+    .panel3d-canvas{width:100%;max-width:100%;overflow:hidden;order:2}
+    .panel3d-left{width:100%;max-width:100%;max-height:none;overflow-y:visible;order:3}
     #chipsM{flex-wrap:wrap}
     .panel3d-canvas{width:100%;max-width:100%;overflow:hidden}
     canvas#view3d{width:100% !important;max-width:100% !important;height:50vh !important;min-height:220px !important;display:block}
@@ -421,26 +421,25 @@
             <div id="reportM"></div>
             <div class="notice" id="noticeM" style="display:none"></div>
           </div>
-          <!-- 우측 65%: 근육 부하 + 3D 캔버스 -->
-          <div class="panel3d-right">
-            <!-- 근육 부하 섹션 (과부하/약화 칩, 개선 우선순위) -->
+          <!-- 가운데: 근육 부하 (과부하/약화 칩, 개선 우선순위) -->
+          <div class="panel3d-mid">
             <div class="rep-h"><span class="t">근육 부하</span></div>
             <div id="reportM-muscle"></div>
-            <!-- 3D 캔버스 -->
-            <div class="panel3d-canvas">
-              <div style="position:relative;background:#0a0f15;border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:260px">
-                <canvas id="view3d" style="display:block;width:100%;height:42vh;min-height:260px;touch-action:none"></canvas>
-                <div id="empty3d" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--txt3);font-size:13px;text-align:center;padding:24px;pointer-events:none">
-                  <div>🧍 3D 근육 모델이 여기 표시돼요</div>
-                  <div><span style="color:var(--teal);font-weight:500">.glb 불러오기</span>로 Z-Anatomy 파일을 여세요</div>
-                  <div style="font-size:11px">드래그=회전 · 휠/핀치=확대 · 우클릭=이동</div>
-                </div>
-                <!-- legend overlay (bottom-left of canvas) -->
-                <div class="legend3d">
-                  <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--red)"></i>과부하 (단축·긴장)</span>
-                  <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--blue)"></i>약화 (이완)</span>
-                  <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:rgba(120,200,210,.3)"></i>정상</span>
-                </div>
+          </div>
+          <!-- 우측: 3D 캔버스 -->
+          <div class="panel3d-canvas">
+            <div style="position:relative;background:#0a0f15;border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:260px">
+              <canvas id="view3d" style="display:block;width:100%;height:42vh;min-height:260px;touch-action:none"></canvas>
+              <div id="empty3d" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--txt3);font-size:13px;text-align:center;padding:24px;pointer-events:none">
+                <div>🧍 3D 근육 모델이 여기 표시돼요</div>
+                <div><span style="color:var(--teal);font-weight:500">.glb 불러오기</span>로 Z-Anatomy 파일을 여세요</div>
+                <div style="font-size:11px">드래그=회전 · 휠/핀치=확대 · 우클릭=이동</div>
+              </div>
+              <!-- legend overlay -->
+              <div class="legend3d">
+                <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--red)"></i>과부하 (단축·긴장)</span>
+                <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--blue)"></i>약화 (이완)</span>
+                <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:rgba(120,200,210,.3)"></i>정상</span>
               </div>
             </div>
           </div>
