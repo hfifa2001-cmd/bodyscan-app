@@ -173,8 +173,9 @@
   .app.musculo .app-posture{grid-column:2/4}
   /* panel3d inner layout */
   .panel3d-body{display:flex;gap:14px;align-items:flex-start;margin-top:8px}
-  .panel3d-sidebar{flex:35 1 0;min-width:200px;min-height:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
-  .panel3d-canvas{flex:65 1 0;min-width:0}
+  .panel3d-left{flex:35 1 0;min-width:200px;min-height:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+  .panel3d-right{flex:65 1 0;min-width:0;display:flex;flex-direction:column;gap:12px}
+  .panel3d-canvas{min-width:0}
   /* canvas legend overlay */
   .legend3d{position:absolute;bottom:12px;left:12px;background:rgba(10,15,21,.78);border:1px solid rgba(120,200,210,.15);border-radius:8px;padding:8px 11px;display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--txt2);pointer-events:none;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
   .app-posture .guide{flex:0 0 82px}
@@ -233,7 +234,9 @@
     .editor{max-height:42vh;flex:1 1 220px;min-width:190px;width:100%}
     /* 3D panel: 리포트(사이드바)를 위, 캔버스를 아래 */
     .panel3d-body{flex-direction:column;gap:10px;overflow:hidden;max-width:100%}
-    .panel3d-sidebar{width:100%;max-width:100%;max-height:none;overflow-y:visible}
+    .panel3d-right{width:100%;max-width:100%;order:1}
+    .panel3d-left{width:100%;max-width:100%;max-height:none;overflow-y:visible;order:2}
+    .panel3d-canvas{width:100%;max-width:100%;overflow:hidden}
     #chipsM{flex-wrap:wrap}
     .panel3d-canvas{width:100%;max-width:100%;overflow:hidden}
     canvas#view3d{width:100% !important;max-width:100% !important;height:50vh !important;min-height:220px !important;display:block}
@@ -408,8 +411,8 @@
         </div>
         <div class="chips" id="chipsM" style="margin-bottom:10px"></div>
         <div class="panel3d-body">
-          <!-- left: musculo report -->
-          <div class="panel3d-sidebar">
+          <!-- 좌측 35%: 근골격 리포트 (요약, 체형, 자세 분석) -->
+          <div class="panel3d-left">
             <div id="notice3d" style="display:none;font-size:11.5px;color:var(--amber)"></div>
             <div class="rep-h">
               <span class="t">근골격 리포트</span>
@@ -418,20 +421,26 @@
             <div id="reportM"></div>
             <div class="notice" id="noticeM" style="display:none"></div>
           </div>
-          <!-- right: 3D canvas -->
-          <div class="panel3d-canvas">
-            <div style="position:relative;background:#0a0f15;border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:260px">
-              <canvas id="view3d" style="display:block;width:100%;height:42vh;min-height:260px;touch-action:none"></canvas>
-              <div id="empty3d" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--txt3);font-size:13px;text-align:center;padding:24px;pointer-events:none">
-                <div>🧍 3D 근육 모델이 여기 표시돼요</div>
-                <div><span style="color:var(--teal);font-weight:500">.glb 불러오기</span>로 Z-Anatomy 파일을 여세요</div>
-                <div style="font-size:11px">드래그=회전 · 휠/핀치=확대 · 우클릭=이동</div>
-              </div>
-              <!-- legend overlay (bottom-left of canvas) -->
-              <div class="legend3d">
-                <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--red)"></i>과부하 (단축·긴장)</span>
-                <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--blue)"></i>약화 (이완)</span>
-                <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:rgba(120,200,210,.3)"></i>정상</span>
+          <!-- 우측 65%: 근육 부하 + 3D 캔버스 -->
+          <div class="panel3d-right">
+            <!-- 근육 부하 섹션 (과부하/약화 칩, 개선 우선순위) -->
+            <div class="rep-h"><span class="t">근육 부하</span></div>
+            <div id="reportM-muscle"></div>
+            <!-- 3D 캔버스 -->
+            <div class="panel3d-canvas">
+              <div style="position:relative;background:#0a0f15;border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:260px">
+                <canvas id="view3d" style="display:block;width:100%;height:42vh;min-height:260px;touch-action:none"></canvas>
+                <div id="empty3d" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--txt3);font-size:13px;text-align:center;padding:24px;pointer-events:none">
+                  <div>🧍 3D 근육 모델이 여기 표시돼요</div>
+                  <div><span style="color:var(--teal);font-weight:500">.glb 불러오기</span>로 Z-Anatomy 파일을 여세요</div>
+                  <div style="font-size:11px">드래그=회전 · 휠/핀치=확대 · 우클릭=이동</div>
+                </div>
+                <!-- legend overlay (bottom-left of canvas) -->
+                <div class="legend3d">
+                  <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--red)"></i>과부하 (단축·긴장)</span>
+                  <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--blue)"></i>약화 (이완)</span>
+                  <span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:rgba(120,200,210,.3)"></i>정상</span>
+                </div>
               </div>
             </div>
           </div>
@@ -922,20 +931,32 @@ function buildIntReport(st){
 }
 
 function renderReport(elId,r,source){
+  /* 근골격 탭: 근육 부하·우선순위를 우측 컬럼 전용 div로 분리 */
+  var splitMuscle=elId==='reportM'&&!!$('reportM-muscle');
   var h='<div style="text-align:right;margin-bottom:8px"><span class="src-tag'+(source==='ai'?' src-ai':'')+'">'+(source==='ai'?'AI 분석':'기본 규칙')+'</span></div>';
   h+='<div class="summary">'+r.summary+'</div>';
   if(r.riskFlags&&r.riskFlags.length){h+='<div class="blk"><div class="blk-t">위험 신호</div>';r.riskFlags.forEach(function(f){h+='<div class="flag"><span class="dot" style="color:'+f.c+';background:'+f.c+'"></span><span class="ft"><div class="fi">'+f.item+' · '+f.value+'</div><div class="fr">'+f.reason+'</div></span></div>';});h+='</div>';}
   if(r.bodyShape)h+='<div class="blk"><div class="blk-t">체형</div><p>'+r.bodyShape+'</p></div>';
   if(r.postureAnalysis)h+='<div class="blk"><div class="blk-t">자세</div><p style="font-size:12.5px;line-height:1.55;color:var(--txt2)">'+r.postureAnalysis+'</p></div>';
   if(r.metabolic)h+='<div class="blk"><div class="blk-t">대사·장기</div><p>'+r.metabolic+'</p></div>';
-  if((r.overloadMuscles&&r.overloadMuscles.length)||(r.weakMuscles&&r.weakMuscles.length)){
-    h+='<div class="blk"><div class="blk-t">근육 부하</div>';
-    if(r.overloadMuscles&&r.overloadMuscles.length)h+='<div style="font-size:11px;color:var(--txt3);margin-bottom:3px">과부하 (빨강)</div><div class="mtags">'+r.overloadMuscles.map(function(m){return'<span class="tag over">'+m+'</span>'}).join('')+'</div>';
-    if(r.weakMuscles&&r.weakMuscles.length)h+='<div style="font-size:11px;color:var(--txt3);margin:7px 0 3px">약화 (파랑)</div><div class="mtags">'+r.weakMuscles.map(function(m){return'<span class="tag weak">'+m+'</span>'}).join('')+'</div>';
-    h+='</div>';
+  if(!splitMuscle){
+    if((r.overloadMuscles&&r.overloadMuscles.length)||(r.weakMuscles&&r.weakMuscles.length)){
+      h+='<div class="blk"><div class="blk-t">근육 부하</div>';
+      if(r.overloadMuscles&&r.overloadMuscles.length)h+='<div style="font-size:11px;color:var(--txt2);margin-bottom:3px">과부하 (빨강)</div><div class="mtags">'+r.overloadMuscles.map(function(m){return'<span class="tag over">'+m+'</span>'}).join('')+'</div>';
+      if(r.weakMuscles&&r.weakMuscles.length)h+='<div style="font-size:11px;color:var(--txt2);margin:7px 0 3px">약화 (파랑)</div><div class="mtags">'+r.weakMuscles.map(function(m){return'<span class="tag weak">'+m+'</span>'}).join('')+'</div>';
+      h+='</div>';
+    }
+    if(r.top3Actions&&r.top3Actions.length)h+='<div class="blk"><div class="blk-t">개선 우선순위</div><ol class="acts">'+r.top3Actions.map(function(a){return'<li>'+a+'</li>'}).join('')+'</ol></div>';
   }
-  if(r.top3Actions&&r.top3Actions.length)h+='<div class="blk"><div class="blk-t">개선 우선순위</div><ol class="acts">'+r.top3Actions.map(function(a){return'<li>'+a+'</li>'}).join('')+'</ol></div>';
   $(elId).innerHTML=h;
+  if(splitMuscle){
+    var mh='';
+    if(r.overloadMuscles&&r.overloadMuscles.length)mh+='<div style="font-size:12px;color:var(--txt2);margin-bottom:4px;font-weight:600">과부하</div><div class="mtags" style="margin-bottom:10px">'+r.overloadMuscles.map(function(m){return'<span class="tag over">'+m+'</span>'}).join('')+'</div>';
+    if(r.weakMuscles&&r.weakMuscles.length)mh+='<div style="font-size:12px;color:var(--txt2);margin-bottom:4px;font-weight:600">약화</div><div class="mtags" style="margin-bottom:10px">'+r.weakMuscles.map(function(m){return'<span class="tag weak">'+m+'</span>'}).join('')+'</div>';
+    if(!r.overloadMuscles&&!r.weakMuscles)mh+='<p style="font-size:12.5px;color:var(--txt2)">사진을 올리면 과부하·약화 근육이 여기 표시돼요.</p>';
+    if(r.top3Actions&&r.top3Actions.length)mh+='<div class="blk"><div class="blk-t">개선 우선순위</div><ol class="acts">'+r.top3Actions.map(function(a){return'<li>'+a+'</li>'}).join('')+'</ol></div>';
+    $('reportM-muscle').innerHTML=mh;
+  }
 }
 
 /* ── Chips ── */
